@@ -1,9 +1,6 @@
-#include <memory>
-
-#include "FWCore/Framework/interface/Frameworkfwd.h"
-#include "FWCore/Framework/interface/one/EDAnalyzer.h"
 #include <algorithm>
 #include <iostream>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -21,7 +18,9 @@
 #include "FWCore/Framework/interface/ConsumesCollector.h"
 #include "FWCore/Framework/interface/ESHandle.h"
 #include "FWCore/Framework/interface/Event.h"
+#include "FWCore/Framework/interface/Frameworkfwd.h"
 #include "FWCore/Framework/interface/MakerMacros.h"
+#include "FWCore/Framework/interface/one/EDAnalyzer.h"
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
 #include "SimDataFormats/GeneratorProducts/interface/HepMCProduct.h"
 #include "TFile.h"
@@ -43,6 +42,17 @@ float dxy_value(const reco::GenParticle& p, const reco::Vertex& pv) {
 
     float dxy = -(vx - pv_x) * sin(phi) + (vy - pv_y) * cos(phi);
     return dxy;
+}
+
+bool hasMotherWithPdgId(const reco::Candidate* particle, int pdgId) {
+    // Loop on mothers, if any, and return true if a mother with the specified pdgId is found
+    for (size_t i = 0; i < particle->numberOfMothers(); i++) {
+        const reco::Candidate* mother = particle->mother(i);
+        if (mother->pdgId() == pdgId || hasMotherWithPdgId(mother, pdgId)) {
+            return true;
+        }
+    }
+    return false;
 }
 
 bool passTagID(const reco::Track* track, const char* mtype) {
