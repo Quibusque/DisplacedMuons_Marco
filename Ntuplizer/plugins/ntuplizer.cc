@@ -151,8 +151,9 @@ class ntuplizer : public edm::one::EDAnalyzer<edm::one::SharedResources> {
 
     edm::ParameterSet parameters;
 
-    bool isData = true;
     bool isAOD = false;
+    bool isCosmics = false;
+    bool isMCSignal = false;
     //
     // --- Tokens and Handles
     //
@@ -194,6 +195,10 @@ class ntuplizer : public edm::one::EDAnalyzer<edm::one::SharedResources> {
     Int_t dmu_numberOfMatchedStations[200] = {0};
     Int_t dmu_numberOfMatchedRPCLayers[200] = {0};
 
+    // Variables for gen matching
+    bool dmu_hasGenMatch[200] = {false};
+    Int_t dmu_genMatchedIndex[200] = {0};
+
     Float_t dmu_dsa_pt[200] = {0.};
     Float_t dmu_dsa_eta[200] = {0.};
     Float_t dmu_dsa_phi[200] = {0.};
@@ -212,11 +217,6 @@ class ntuplizer : public edm::one::EDAnalyzer<edm::one::SharedResources> {
     Int_t dmu_dsa_dtStationsWithValidHits[200] = {0};
     Int_t dmu_dsa_cscStationsWithValidHits[200] = {0};
     Int_t dmu_dsa_nsegments[200] = {0};
-    // Variables for tag and probe
-    bool dmu_dsa_passTagID[200] = {false};
-    bool dmu_dsa_hasProbe[200] = {false};
-    Int_t dmu_dsa_probeID[200] = {0};
-    Float_t dmu_dsa_cosAlpha[200] = {0.};
 
     Float_t dmu_dgl_pt[200] = {0.};
     Float_t dmu_dgl_eta[200] = {0.};
@@ -233,11 +233,19 @@ class ntuplizer : public edm::one::EDAnalyzer<edm::one::SharedResources> {
     Int_t dmu_dgl_nValidMuonRPCHits[200] = {0};
     Int_t dmu_dgl_nValidStripHits[200] = {0};
     Int_t dmu_dgl_nhits[200] = {0};
+
     // Variables for tag and probe
+    bool dmu_dsa_passTagID[200] = {false};
+    bool dmu_dsa_hasProbe[200] = {false};
+    Int_t dmu_dsa_probeID[200] = {0};
+    Float_t dmu_dsa_cosAlpha[200] = {0.};
+    bool dmu_dsa_isProbe[200] = {false};
+
     bool dmu_dgl_passTagID[200] = {false};
     bool dmu_dgl_hasProbe[200] = {false};
     Int_t dmu_dgl_probeID[200] = {0};
     Float_t dmu_dgl_cosAlpha[200] = {0.};
+    bool dmu_dgl_isProbe[200] = {false};
 
     Float_t dmu_dtk_pt[200] = {0.};
     Float_t dmu_dtk_eta[200] = {0.};
@@ -271,8 +279,9 @@ ntuplizer::ntuplizer(const edm::ParameterSet& iConfig) {
     parameters = iConfig;
 
     // Analyzer parameters
-    isData = parameters.getParameter<bool>("isData");
     isAOD = parameters.getParameter<bool>("isAOD");
+    isCosmics = parameters.getParameter<bool>("isCosmics");
+    isMCSignal = parameters.getParameter<bool>("isMCSignal");
 
     counts = new TH1F("counts", "", 1, 0, 1);
 
@@ -349,11 +358,6 @@ void ntuplizer::beginJob() {
                      "dmu_dsa_dtStationsWithValidHits[ndmu]/I");
     tree_out->Branch("dmu_dsa_cscStationsWithValidHits", dmu_dsa_cscStationsWithValidHits,
                      "dmu_dsa_cscStationsWithValidHits[ndmu]/I");
-    tree_out->Branch("dmu_dsa_nsegments", dmu_dsa_nsegments, "dmu_dsa_nsegments[ndmu]/I");
-    tree_out->Branch("dmu_dsa_passTagID", dmu_dsa_passTagID, "dmu_dsa_passTagID[ndmu]/O");
-    tree_out->Branch("dmu_dsa_hasProbe", dmu_dsa_hasProbe, "dmu_dsa_hasProbe[ndmu]/O");
-    tree_out->Branch("dmu_dsa_probeID", dmu_dsa_probeID, "dmu_dsa_probeID[ndmu]/I");
-    tree_out->Branch("dmu_dsa_cosAlpha", dmu_dsa_cosAlpha, "dmu_dsa_cosAlpha[ndmu]/F");
     // dmu_dgl
     tree_out->Branch("dmu_dgl_pt", dmu_dgl_pt, "dmu_dgl_pt[ndmu]/F");
     tree_out->Branch("dmu_dgl_eta", dmu_dgl_eta, "dmu_dgl_eta[ndmu]/F");
@@ -376,11 +380,27 @@ void ntuplizer::beginJob() {
     tree_out->Branch("dmu_dgl_nValidStripHits", dmu_dgl_nValidStripHits,
                      "dmu_dgl_nValidStripHits[ndmu]/I");
     tree_out->Branch("dmu_dgl_nhits", dmu_dgl_nhits, "dmu_dgl_nhits[ndmu]/I");
-    tree_out->Branch("dmu_dgl_passTagID", dmu_dgl_passTagID, "dmu_dgl_passTagID[ndmu]/O");
-    tree_out->Branch("dmu_dgl_hasProbe", dmu_dgl_hasProbe, "dmu_dgl_hasProbe[ndmu]/O");
-    tree_out->Branch("dmu_dgl_probeID", dmu_dgl_probeID, "dmu_dgl_probeID[ndmu]/I");
-    tree_out->Branch("dmu_dgl_cosAlpha", dmu_dgl_cosAlpha, "dmu_dgl_cosAlpha[ndmu]/F");
 
+    //Tag and probe branches
+    if (isCosmics) {
+      tree_out->Branch("dmu_dsa_nsegments", dmu_dsa_nsegments, "dmu_dsa_nsegments[ndmu]/I");
+      tree_out->Branch("dmu_dsa_passTagID", dmu_dsa_passTagID, "dmu_dsa_passTagID[ndmu]/O");
+      tree_out->Branch("dmu_dsa_hasProbe", dmu_dsa_hasProbe, "dmu_dsa_hasProbe[ndmu]/O");
+      tree_out->Branch("dmu_dsa_probeID", dmu_dsa_probeID, "dmu_dsa_probeID[ndmu]/I");
+      tree_out->Branch("dmu_dsa_cosAlpha", dmu_dsa_cosAlpha, "dmu_dsa_cosAlpha[ndmu]/F");
+      tree_out->Branch("dmu_dsa_isProbe", dmu_dsa_isProbe, "dmu_dsa_isProbe[ndmu]/O");
+
+      tree_out->Branch("dmu_dgl_passTagID", dmu_dgl_passTagID, "dmu_dgl_passTagID[ndmu]/O");
+      tree_out->Branch("dmu_dgl_hasProbe", dmu_dgl_hasProbe, "dmu_dgl_hasProbe[ndmu]/O");
+      tree_out->Branch("dmu_dgl_probeID", dmu_dgl_probeID, "dmu_dgl_probeID[ndmu]/I");
+      tree_out->Branch("dmu_dgl_cosAlpha", dmu_dgl_cosAlpha, "dmu_dgl_cosAlpha[ndmu]/F");
+      tree_out->Branch("dmu_dgl_isProbe", dmu_dgl_isProbe, "dmu_dgl_isProbe[ndmu]/O");
+    }
+    // Gen Matching branches
+    if (isMCSignal) {
+      tree_out->Branch("dmu_hasGenMatch", dmu_hasGenMatch, "dmu_hasGenMatch[ndmu]/O");
+      tree_out->Branch("dmu_genMatchedIndex", dmu_genMatchedIndex, "dmu_genMatchedIndex[ndmu]/I");
+    }
     // Trigger branches
     for (unsigned int ihlt = 0; ihlt < HLTPaths_.size(); ihlt++) {
         tree_out->Branch(TString(HLTPaths_[ihlt]), &triggerPass[ihlt]);
@@ -537,128 +557,146 @@ void ntuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
     // ----------------------------------
     // Tag and probe code
     // ----------------------------------
-    ndmu = 0;
-    for (unsigned int i = 0; i < dmuons->size(); i++) {
-        const reco::Muon& dmuon(dmuons->at(i));
-        // Access the DGL track associated to the displacedMuon
-        // std::cout << "isGlobalMuon: " << dmuon.isGlobalMuon() << std::endl;
-        if (dmuon.isGlobalMuon()) {
-            const reco::Track* globalTrack = (dmuon.combinedMuon()).get();
-            // Fill tag and probe variables
-            //   First, reset the variables
-            dmu_dgl_passTagID[ndmu] = false;
-            dmu_dgl_hasProbe[ndmu] = false;
-            dmu_dgl_probeID[ndmu] = 0;
-            dmu_dgl_cosAlpha[ndmu] = 0.;
-            // Check if muon passes tag ID
-            dmu_dgl_passTagID[ndmu] = passTagID(globalTrack, "DGL");
-            if (dmu_dgl_passTagID[ndmu]) {
-                // Search probe
-                TVector3 v_tag = TVector3();
-                v_tag.SetPtEtaPhi(globalTrack->pt(), globalTrack->eta(), globalTrack->phi());
-                const reco::Muon* muonProbeTemp =
-                    nullptr;  // pointer for temporal probe (initialized to nullptr)
-                for (unsigned int j = 0; j < dmuons->size();
-                     j++) {  // Loop over the rest of the muons
-                    if (i == j) {
-                        continue;
-                    }
-                    const reco::Muon& muonProbeCandidate(dmuons->at(j));
-                    if (!muonProbeCandidate.isGlobalMuon()) {
-                        continue;
-                    }  // Get only dgls
-                    const reco::Track* trackProbeCandidate =
-                        (muonProbeCandidate.combinedMuon()).get();
-                    if (passProbeID(trackProbeCandidate, v_tag, "DGL")) {
-                        TVector3 v_probe = TVector3();
-                        v_probe.SetPtEtaPhi(trackProbeCandidate->pt(), trackProbeCandidate->eta(),
-                                            trackProbeCandidate->phi());
-                        if (!dmu_dgl_hasProbe[ndmu]) {
-                            dmu_dgl_hasProbe[ndmu] = true;
-                            muonProbeTemp = &(dmuons->at(j));
-                            dmu_dgl_probeID[ndmu] = j;
-                            dmu_dgl_cosAlpha[ndmu] = cos(v_tag.Angle(v_probe));
-                        } else {
-                            const reco::Track* trackProbeTemp =
-                                (muonProbeTemp->combinedMuon()).get();
-                            if (trackProbeCandidate->pt() > trackProbeTemp->pt()) {
-                                muonProbeTemp = &(dmuons->at(j));
-                                dmu_dgl_probeID[ndmu] = j;
-                                dmu_dgl_cosAlpha[ndmu] = cos(v_tag.Angle(v_probe));
-                            } else {
-                                std::cout << ">> Probe candidate " << j << " has lower pt than "
-                                          << dmu_dgl_probeID[ndmu] << std::endl;
-                            }
-                        }
-                    }
-                }
-            }
-        } else {
-            dmu_dgl_passTagID[ndmu] = false;
-            dmu_dgl_hasProbe[ndmu] = false;
-            dmu_dgl_probeID[ndmu] = 0;
-            dmu_dgl_cosAlpha[ndmu] = 0.;
-        }
-        // Access the DSA track associated to the displacedMuon
-        // std::cout << "isStandAloneMuon: " << dmuon.isStandAloneMuon() << std::endl;
-        if (dmuon.isStandAloneMuon()) {
-            const reco::Track* outerTrack = (dmuon.standAloneMuon()).get();
-            // Fill tag and probe variables
-            //   First, reset the variables
-            dmu_dsa_passTagID[ndmu] = false;
-            dmu_dsa_hasProbe[ndmu] = false;
-            dmu_dsa_probeID[ndmu] = 0;
-            dmu_dsa_cosAlpha[ndmu] = 0.;
-            // Check if muon passes tag ID
-            dmu_dsa_passTagID[ndmu] = passTagID(outerTrack, "DSA");
-            if (dmu_dsa_passTagID[ndmu]) {
-                // Search probe
-                TVector3 v_tag = TVector3();
-                v_tag.SetPtEtaPhi(outerTrack->pt(), outerTrack->eta(), outerTrack->phi());
-                const reco::Muon* muonProbeTemp =
-                    nullptr;  // pointer for temporal probe (initialized to nullptr)
-                for (unsigned int j = 0; j < dmuons->size();
-                     j++) {  // Loop over the rest of the muons
-                    if (i == j) {
-                        continue;
-                    }
-                    const reco::Muon& muonProbeCandidate(dmuons->at(j));
-                    if (!muonProbeCandidate.isStandAloneMuon()) {
-                        continue;
-                    }  // Get only dsas
-                    const reco::Track* trackProbeCandidate =
-                        (muonProbeCandidate.standAloneMuon()).get();
-                    if (passProbeID(trackProbeCandidate, v_tag, "DSA")) {
-                        TVector3 v_probe = TVector3();
-                        v_probe.SetPtEtaPhi(trackProbeCandidate->pt(), trackProbeCandidate->eta(),
-                                            trackProbeCandidate->phi());
-                        if (!dmu_dsa_hasProbe[ndmu]) {
-                            dmu_dsa_hasProbe[ndmu] = true;
-                            muonProbeTemp = &(dmuons->at(j));
-                            dmu_dsa_probeID[ndmu] = j;
-                            dmu_dsa_cosAlpha[ndmu] = cos(v_tag.Angle(v_probe));
-                        } else {
-                            const reco::Track* trackProbeTemp =
-                                (muonProbeTemp->standAloneMuon()).get();
-                            if (trackProbeCandidate->pt() > trackProbeTemp->pt()) {
-                                muonProbeTemp = &(dmuons->at(j));
-                                dmu_dsa_probeID[ndmu] = j;
-                                dmu_dsa_cosAlpha[ndmu] = cos(v_tag.Angle(v_probe));
-                            } else {
-                                std::cout << ">> Probe candidate " << j << " has lower pt than "
-                                          << dmu_dsa_probeID[ndmu] << std::endl;
-                            }
-                        }
-                    }
-                }
-            }
-        } else {
-            dmu_dsa_passTagID[ndmu] = false;
-            dmu_dsa_hasProbe[ndmu] = false;
-            dmu_dsa_probeID[ndmu] = 0;
-            dmu_dsa_cosAlpha[ndmu] = 0.;
-        }
-        ndmu++;
+    if (isCosmics) {
+      ndmu = 0;
+      for (unsigned int i = 0; i < dmuons->size(); i++) {
+          const reco::Muon& dmuon(dmuons->at(i));
+          // Access the DGL track associated to the displacedMuon
+          // std::cout << "isGlobalMuon: " << dmuon.isGlobalMuon() << std::endl;
+          if (dmuon.isGlobalMuon()) {
+              const reco::Track* globalTrack = (dmuon.combinedMuon()).get();
+              // Fill tag and probe variables
+              //   First, reset the variables
+              dmu_dgl_passTagID[ndmu] = false;
+              dmu_dgl_hasProbe[ndmu] = false;
+              dmu_dgl_probeID[ndmu] = 0;
+              dmu_dgl_cosAlpha[ndmu] = 0.;
+              // Check if muon passes tag ID
+              dmu_dgl_passTagID[ndmu] = passTagID(globalTrack, "DGL");
+              if (dmu_dgl_passTagID[ndmu]) {
+                  // Search probe
+                  TVector3 v_tag = TVector3();
+                  v_tag.SetPtEtaPhi(globalTrack->pt(), globalTrack->eta(), globalTrack->phi());
+                  const reco::Muon* muonProbeTemp =
+                      nullptr;  // pointer for temporal probe (initialized to nullptr)
+                  for (unsigned int j = 0; j < dmuons->size();
+                      j++) {  // Loop over the rest of the muons
+                      if (i == j) {
+                          continue;
+                      }
+                      const reco::Muon& muonProbeCandidate(dmuons->at(j));
+                      if (!muonProbeCandidate.isGlobalMuon()) {
+                          continue;
+                      }  // Get only dgls
+                      const reco::Track* trackProbeCandidate =
+                          (muonProbeCandidate.combinedMuon()).get();
+                      if (passProbeID(trackProbeCandidate, v_tag, "DGL")) {
+                          TVector3 v_probe = TVector3();
+                          v_probe.SetPtEtaPhi(trackProbeCandidate->pt(), trackProbeCandidate->eta(),
+                                              trackProbeCandidate->phi());
+                          if (!dmu_dgl_hasProbe[ndmu]) {
+                              dmu_dgl_hasProbe[ndmu] = true;
+                              muonProbeTemp = &(dmuons->at(j));
+                              dmu_dgl_probeID[ndmu] = j;
+                              dmu_dgl_cosAlpha[ndmu] = cos(v_tag.Angle(v_probe));
+                          } else {
+                              const reco::Track* trackProbeTemp =
+                                  (muonProbeTemp->combinedMuon()).get();
+                              if (trackProbeCandidate->pt() > trackProbeTemp->pt()) {
+                                  muonProbeTemp = &(dmuons->at(j));
+                                  dmu_dgl_probeID[ndmu] = j;
+                                  dmu_dgl_cosAlpha[ndmu] = cos(v_tag.Angle(v_probe));
+                              } else {
+                                  std::cout << ">> Probe candidate " << j << " has lower pt than "
+                                            << dmu_dgl_probeID[ndmu] << std::endl;
+                              }
+                          }
+                      }
+                  }
+              }
+          } else {
+              dmu_dgl_passTagID[ndmu] = false;
+              dmu_dgl_hasProbe[ndmu] = false;
+              dmu_dgl_probeID[ndmu] = 0;
+              dmu_dgl_cosAlpha[ndmu] = 0.;
+          }
+          // Access the DSA track associated to the displacedMuon
+          // std::cout << "isStandAloneMuon: " << dmuon.isStandAloneMuon() << std::endl;
+          if (dmuon.isStandAloneMuon()) {
+              const reco::Track* outerTrack = (dmuon.standAloneMuon()).get();
+              // Fill tag and probe variables
+              //   First, reset the variables
+              dmu_dsa_passTagID[ndmu] = false;
+              dmu_dsa_hasProbe[ndmu] = false;
+              dmu_dsa_probeID[ndmu] = 0;
+              dmu_dsa_cosAlpha[ndmu] = 0.;
+              // Check if muon passes tag ID
+              dmu_dsa_passTagID[ndmu] = passTagID(outerTrack, "DSA");
+              if (dmu_dsa_passTagID[ndmu]) {
+                  // Search probe
+                  TVector3 v_tag = TVector3();
+                  v_tag.SetPtEtaPhi(outerTrack->pt(), outerTrack->eta(), outerTrack->phi());
+                  const reco::Muon* muonProbeTemp =
+                      nullptr;  // pointer for temporal probe (initialized to nullptr)
+                  for (unsigned int j = 0; j < dmuons->size();
+                      j++) {  // Loop over the rest of the muons
+                      if (i == j) {
+                          continue;
+                      }
+                      const reco::Muon& muonProbeCandidate(dmuons->at(j));
+                      if (!muonProbeCandidate.isStandAloneMuon()) {
+                          continue;
+                      }  // Get only dsas
+                      const reco::Track* trackProbeCandidate =
+                          (muonProbeCandidate.standAloneMuon()).get();
+                      if (passProbeID(trackProbeCandidate, v_tag, "DSA")) {
+                          TVector3 v_probe = TVector3();
+                          v_probe.SetPtEtaPhi(trackProbeCandidate->pt(), trackProbeCandidate->eta(),
+                                              trackProbeCandidate->phi());
+                          if (!dmu_dsa_hasProbe[ndmu]) {
+                              dmu_dsa_hasProbe[ndmu] = true;
+                              muonProbeTemp = &(dmuons->at(j));
+                              dmu_dsa_probeID[ndmu] = j;
+                              dmu_dsa_cosAlpha[ndmu] = cos(v_tag.Angle(v_probe));
+                          } else {
+                              const reco::Track* trackProbeTemp =
+                                  (muonProbeTemp->standAloneMuon()).get();
+                              if (trackProbeCandidate->pt() > trackProbeTemp->pt()) {
+                                  muonProbeTemp = &(dmuons->at(j));
+                                  dmu_dsa_probeID[ndmu] = j;
+                                  dmu_dsa_cosAlpha[ndmu] = cos(v_tag.Angle(v_probe));
+                              } else {
+                                  std::cout << ">> Probe candidate " << j << " has lower pt than "
+                                            << dmu_dsa_probeID[ndmu] << std::endl;
+                              }
+                          }
+                      }
+                  }
+              }
+          } else {
+              dmu_dsa_passTagID[ndmu] = false;
+              dmu_dsa_hasProbe[ndmu] = false;
+              dmu_dsa_probeID[ndmu] = 0;
+              dmu_dsa_cosAlpha[ndmu] = 0.;
+          }
+          ndmu++;
+      }
+      // After the tag and probe identification loop, identify the probe muons
+      // Set all values of dmu_*_isProbe to false
+      for (int i = 0; i < ndmu; i++) {
+          dmu_dgl_isProbe[i] = false;
+          dmu_dsa_isProbe[i] = false;
+      }
+      ndmu = 0;
+      for (unsigned int i = 0; i < dmuons->size(); i++) {
+          if (dmu_dgl_hasProbe[ndmu]) {
+              dmu_dgl_isProbe[dmu_dgl_probeID[ndmu]] = true;
+          }
+          if (dmu_dsa_hasProbe[ndmu]) {
+              dmu_dsa_isProbe[dmu_dsa_probeID[ndmu]] = true;
+          }
+          ndmu++;
+      }
     }
 
     // Check if trigger fired:
