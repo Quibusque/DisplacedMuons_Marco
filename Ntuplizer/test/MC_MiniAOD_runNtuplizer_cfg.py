@@ -1,5 +1,18 @@
 import FWCore.ParameterSet.Config as cms
 import os
+import re
+import argparse
+
+
+#Argument parser
+parser = argparse.ArgumentParser()
+parser.add_argument('-input_dir', type=str, help='Directory that contains all the root files to be processed')
+parser.add_argument('-out_file', type=str, help='Output file name')
+args = parser.parse_args()
+
+main_dir = "/eos/home-m/mcrucian/datasets/displaced_muons/"
+my_dir = os.path.join(main_dir, args.input_dir)
+
 
 process = cms.Process("demo")
 process.load('Configuration.StandardSequences.GeometryDB_cff')
@@ -24,7 +37,13 @@ nEvents = -1
 process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(nEvents) )
 
 # Read events
-listOfFiles = [f'/store/user/llunerti/UndergroundCosmiHPLooseMu_bottomPhiFilter/Run3_2023_MINI/241103_111439/0000/step3_inMINIAODSIM_{i+1}.root' for i in range(96)]
+listOfFiles = [
+    os.path.join(root, file)
+    for root, dirs, files in os.walk(my_dir)
+    for file in files
+    if file.endswith(".root")
+]
+listOfFiles = ['file:'+f for f in files]
 
 process.source = cms.Source("PoolSource",
     fileNames = cms.untracked.vstring( listOfFiles ),
@@ -37,5 +56,7 @@ process.GlobalTag = GlobalTag(process.GlobalTag, gTag)
 ## Define the process to run 
 ## 
 process.load("DisplacedMuons-FrameWork.Ntuplizer.MC_ntuples_MiniAOD_cfi")
+
+process.ntuples.nameOfOutput = args.out_file
 
 process.p = cms.EndPath(process.ntuples)
