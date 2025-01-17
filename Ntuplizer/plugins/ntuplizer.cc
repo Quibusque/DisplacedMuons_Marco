@@ -163,14 +163,14 @@ class ntuplizer : public edm::one::EDAnalyzer<edm::one::SharedResources> {
     edm::Handle<edm::TriggerResults> triggerBits;
 
     // displacedGlobalMuons (reco::Track)
-    edm::EDGetTokenT<edm::View<reco::Track> > dglToken;
-    edm::Handle<edm::View<reco::Track> > dgls;
+    edm::EDGetTokenT<edm::View<reco::Track>> dglToken;
+    edm::Handle<edm::View<reco::Track>> dgls;
     // displacedStandAloneMuons (reco::Track)
-    edm::EDGetTokenT<edm::View<reco::Track> > dsaToken;
-    edm::Handle<edm::View<reco::Track> > dsas;
+    edm::EDGetTokenT<edm::View<reco::Track>> dsaToken;
+    edm::Handle<edm::View<reco::Track>> dsas;
     // displacedMuons (reco::Muon // pat::Muon)
-    edm::EDGetTokenT<edm::View<reco::Muon> > dmuToken;
-    edm::Handle<edm::View<reco::Muon> > dmuons;
+    edm::EDGetTokenT<edm::View<reco::Muon>> dmuToken;
+    edm::Handle<edm::View<reco::Muon>> dmuons;
     // prunedGenParticles (reco::GenParticle)
     edm::EDGetTokenT<edm::View<reco::GenParticle>> prunedGenToken;
     edm::Handle<edm::View<reco::GenParticle>> prunedGen;
@@ -288,14 +288,16 @@ ntuplizer::ntuplizer(const edm::ParameterSet& iConfig) {
 
     counts = new TH1F("counts", "", 1, 0, 1);
 
-    dglToken = consumes<edm::View<reco::Track> >(
+    dglToken = consumes<edm::View<reco::Track>>(
         parameters.getParameter<edm::InputTag>("displacedGlobalCollection"));
-    dsaToken = consumes<edm::View<reco::Track> >(
+    dsaToken = consumes<edm::View<reco::Track>>(
         parameters.getParameter<edm::InputTag>("displacedStandAloneCollection"));
-    dmuToken = consumes<edm::View<reco::Muon> >(
+    dmuToken = consumes<edm::View<reco::Muon>>(
         parameters.getParameter<edm::InputTag>("displacedMuonCollection"));
-    prunedGenToken = consumes<edm::View<reco::GenParticle>>(
-        parameters.getParameter<edm::InputTag>("prunedGenParticles"));
+    if (isMCSignal) {
+        prunedGenToken = consumes<edm::View<reco::GenParticle>>(
+            parameters.getParameter<edm::InputTag>("prunedGenParticles"));
+    }
 
     triggerBits_ = consumes<edm::TriggerResults>(parameters.getParameter<edm::InputTag>("bits"));
 }
@@ -433,7 +435,10 @@ void ntuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
     iEvent.getByToken(dglToken, dgls);
     iEvent.getByToken(dsaToken, dsas);
     iEvent.getByToken(dmuToken, dmuons);
-    iEvent.getByToken(prunedGenToken, prunedGen);
+
+    if (isMCSignal) {
+        iEvent.getByToken(prunedGenToken, prunedGen);
+    }
     iEvent.getByToken(triggerBits_, triggerBits);
 
     // Count number of events read
@@ -447,21 +452,21 @@ void ntuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
     // ----------------------------------
     // genParticles Collection
     // ----------------------------------
-
     Int_t nprugenmu = 0;
     int goodGenMuons_indices[10] = {-1};
     int n_goodGenMuons = 0;
-
-    for (unsigned int i = 0; i < prunedGen->size(); i++) {
-        const reco::GenParticle& p(prunedGen->at(i));
-        if (abs(p.pdgId()) == 13 && p.status() == 1) {  // Check if the particle is a muon
-            // Check if the muon has a mother with pdgId 1023
-            if (hasMotherWithPdgId(&p, 1023)) {
-                goodGenMuons_indices[n_goodGenMuons] = i;
-                n_goodGenMuons++;
+    if (isMCSignal) {
+        for (unsigned int i = 0; i < prunedGen->size(); i++) {
+            const reco::GenParticle& p(prunedGen->at(i));
+            if (abs(p.pdgId()) == 13 && p.status() == 1) {  // Check if the particle is a muon
+                // Check if the muon has a mother with pdgId 1023
+                if (hasMotherWithPdgId(&p, 1023)) {
+                    goodGenMuons_indices[n_goodGenMuons] = i;
+                    n_goodGenMuons++;
+                }
             }
+            nprugenmu++;
         }
-        nprugenmu++;
     }
 
     // ----------------------------------
