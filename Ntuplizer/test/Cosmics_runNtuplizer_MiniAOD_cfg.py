@@ -30,7 +30,10 @@ nEvents = -1
 process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(nEvents) )
 
 # Read events
-listOfFiles = ['']
+main_dir = "/eos/home-m/mcrucian/datasets/displaced_muons/"
+listOfFiles = ['reco_test_1.root']
+listOfFiles = [os.path.join(main_dir, f) for f in listOfFiles]
+listOfFiles = ['file:'+f for f in listOfFiles]
 
 process.source = cms.Source("PoolSource",
     fileNames = cms.untracked.vstring( listOfFiles ),

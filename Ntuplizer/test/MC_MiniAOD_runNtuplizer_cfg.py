@@ -43,7 +43,7 @@ listOfFiles = [
     for file in files
     if file.endswith(".root")
 ]
-listOfFiles = ['file:'+f for f in files]
+listOfFiles = ['file:'+f for f in listOfFiles]
 
 process.source = cms.Source("PoolSource",
     fileNames = cms.untracked.vstring( listOfFiles ),
