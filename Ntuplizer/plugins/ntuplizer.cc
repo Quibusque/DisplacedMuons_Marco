@@ -610,15 +610,15 @@ void ntuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
                     dmu_genMatchedIndex[ndmu] = goodGenMuons_indices[j];
                     matchedMuons.push_back(&dmuon);
                     // Debugging: Print the information of the reco muon and gen muon
-                    std::cout << ">> Displaced muon with\nvertex at (" << candidate_vertex.X()
-                              << ", " << candidate_vertex.Y() << ", " << candidate_vertex.Z()
-                              << ") and pT = " << candidateTrack->pt()
-                              << " eta = " << candidateTrack->eta()
-                              << " phi = " << candidateTrack->phi()
-                              << " is matched to gen muon with\nvertex at (" << gen_vertex.X()
-                              << ", " << gen_vertex.Y() << ", " << gen_vertex.Z()
-                              << ") and pT = " << p.pt() << " eta = " << p.eta()
-                              << " phi = " << p.phi() << std::endl;
+                    // std::cout << ">> Displaced muon with\nvertex at (" << candidate_vertex.X()
+                    //           << ", " << candidate_vertex.Y() << ", " << candidate_vertex.Z()
+                    //           << ") and pT = " << candidateTrack->pt()
+                    //           << " eta = " << candidateTrack->eta()
+                    //           << " phi = " << candidateTrack->phi()
+                    //           << " is matched to gen muon with\nvertex at (" << gen_vertex.X()
+                    //           << ", " << gen_vertex.Y() << ", " << gen_vertex.Z()
+                    //           << ") and pT = " << p.pt() << " eta = " << p.eta()
+                    //           << " phi = " << p.phi() << std::endl;
                 }
             }
         }
@@ -799,17 +799,61 @@ void ntuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
         //-> Fill tree
         tree_out->Fill();
     }
-    // Debugging: just check if this is reasonable
-    if (matchedMuons.size() == 2 &&
-        matchedMuons[0]->charge() != matchedMuons[1]->charge()) {
-        TLorentzVector muon1, muon2;
-        muon1.SetPtEtaPhiM(matchedMuons[0]->pt(), matchedMuons[0]->eta(),
-                            matchedMuons[0]->phi(), 0.105);
-        muon2.SetPtEtaPhiM(matchedMuons[1]->pt(), matchedMuons[1]->eta(),
-                            matchedMuons[1]->phi(), 0.105);
-        double invariantMass = (muon1 + muon2).M();
-        std::cout << "Invariant mass of the two gen-matched muons: " << invariantMass
-                    << std::endl;
+
+    // Re-loop over the reco muons and check if multiple reco muons are matched to the
+    // same gen muon. If that is the case, you should only keep the one whose pt is
+    // closer to the gen muon pt.
+    if (isMCSignal) {
+        for (int i = 0; i < ndmu; ++i) {
+            if (!dmu_hasGenMatch[i]) continue;
+
+            int genIndex = dmu_genMatchedIndex[i];
+            float recoPt = 0;
+            if (dmu_isDGL[i]) {
+                recoPt = dmu_dgl_pt[i];
+            } else if (dmu_isDSA[i]) {
+                recoPt = dmu_dsa_pt[i];
+            } else if (dmu_isDTK[i]) {
+                recoPt = dmu_dtk_pt[i];
+            }
+
+            for (int j = i + 1; j < ndmu; ++j) {
+                if (dmu_genMatchedIndex[j] == genIndex) {
+                    float recoPt_j = 0;
+                    if (dmu_isDGL[j]) {
+                        recoPt_j = dmu_dgl_pt[j];
+                    } else if (dmu_isDSA[j]) {
+                        recoPt_j = dmu_dsa_pt[j];
+                    } else if (dmu_isDTK[j]) {
+                        recoPt_j = dmu_dtk_pt[j];
+                    }
+
+                    const reco::GenParticle& genMuon = prunedGen->at(genIndex);
+                    float genPt = genMuon.pt();
+
+                    if (abs(recoPt - genPt) < abs(recoPt_j - genPt)) {
+                        dmu_hasGenMatch[j] = false;
+                        dmu_genMatchedIndex[j] = -1;
+                    } else {
+                        dmu_hasGenMatch[i] = false;
+                        dmu_genMatchedIndex[i] = -1;
+                    }
+                }
+            }
+        }
     }
+
+    // // Debugging: just check if this is reasonable
+    // if (matchedMuons.size() == 2 &&
+    //     matchedMuons[0]->charge() != matchedMuons[1]->charge()) {
+    //     TLorentzVector muon1, muon2;
+    //     muon1.SetPtEtaPhiM(matchedMuons[0]->pt(), matchedMuons[0]->eta(),
+    //                         matchedMuons[0]->phi(), 0.105);
+    //     muon2.SetPtEtaPhiM(matchedMuons[1]->pt(), matchedMuons[1]->eta(),
+    //                         matchedMuons[1]->phi(), 0.105);
+    //     double invariantMass = (muon1 + muon2).M();
+    //     std::cout << "Invariant mass of the two gen-matched muons: " << invariantMass
+    //                 << std::endl;
+    // }
 }
 DEFINE_FWK_MODULE(ntuplizer);
