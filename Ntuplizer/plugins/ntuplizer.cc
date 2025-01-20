@@ -198,6 +198,11 @@ class ntuplizer : public edm::one::EDAnalyzer<edm::one::SharedResources> {
     Int_t dmu_numberOfMatchedStations[200] = {0};
     Int_t dmu_numberOfMatchedRPCLayers[200] = {0};
 
+    // Variables by Marco
+    Float_t dmu_t0_InOut[200] = {0.};
+    Float_t dmu_t0_OutIn[200] = {0.};
+
+
     // Variables for gen matching
     bool dmu_hasGenMatch[200] = {false};
     Int_t dmu_genMatchedIndex[200] = {0};
@@ -339,6 +344,8 @@ void ntuplizer::beginJob() {
                      "dmu_numberOfMatchedStations[ndmu]/I");
     tree_out->Branch("dmu_numberOfMatchedRPCLayers", dmu_numberOfMatchedRPCLayers,
                      "dmu_numberOfMatchedRPCLayers[ndmu]/I");
+    tree_out->Branch("dmu_t0_InOut", dmu_t0_InOut, "dmu_t0_InOut[ndmu]/F");
+    tree_out->Branch("dmu_t0_OutIn", dmu_t0_OutIn, "dmu_t0_OutIn[ndmu]/F");
     // dmu_dsa
     tree_out->Branch("dmu_dsa_pt", dmu_dsa_pt, "dmu_dsa_pt[ndmu]/F");
     tree_out->Branch("dmu_dsa_eta", dmu_dsa_eta, "dmu_dsa_eta[ndmu]/F");
@@ -486,6 +493,8 @@ void ntuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
         dmu_numberOfChambersCSCorDT[ndmu] = dmuon.numberOfChambersCSCorDT();
         dmu_numberOfMatchedStations[ndmu] = dmuon.numberOfMatchedStations();
         dmu_numberOfMatchedRPCLayers[ndmu] = dmuon.numberOfMatchedRPCLayers();
+        dmu_t0_InOut[ndmu] = dmuon.time().timeAtIpInOut;
+        dmu_t0_OutIn[ndmu] = dmuon.time().timeAtIpOutIn;
 
         // Access the DGL track associated to the displacedMuon
         // std::cout << "isGlobalMuon: " << dmuon.isGlobalMuon() << std::endl;
