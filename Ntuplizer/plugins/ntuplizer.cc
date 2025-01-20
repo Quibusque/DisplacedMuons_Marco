@@ -620,19 +620,6 @@ void ntuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
                               << ") and pT = " << p.pt() << " eta = " << p.eta()
                               << " phi = " << p.phi() << std::endl;
                 }
-
-                // Debugging: just check if this is reasonable
-                if (matchedMuons.size() == 2 &&
-                    matchedMuons[0]->charge() != matchedMuons[1]->charge()) {
-                    TLorentzVector muon1, muon2;
-                    muon1.SetPtEtaPhiM(matchedMuons[0]->pt(), matchedMuons[0]->eta(),
-                                       matchedMuons[0]->phi(), 0.105);
-                    muon2.SetPtEtaPhiM(matchedMuons[1]->pt(), matchedMuons[1]->eta(),
-                                       matchedMuons[1]->phi(), 0.105);
-                    double invariantMass = (muon1 + muon2).M();
-                    std::cout << "Invariant mass of the two gen-matched muons: " << invariantMass
-                              << std::endl;
-                }
             }
         }
         ndmu++;
@@ -811,6 +798,18 @@ void ntuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 
         //-> Fill tree
         tree_out->Fill();
+    }
+    // Debugging: just check if this is reasonable
+    if (matchedMuons.size() == 2 &&
+        matchedMuons[0]->charge() != matchedMuons[1]->charge()) {
+        TLorentzVector muon1, muon2;
+        muon1.SetPtEtaPhiM(matchedMuons[0]->pt(), matchedMuons[0]->eta(),
+                            matchedMuons[0]->phi(), 0.105);
+        muon2.SetPtEtaPhiM(matchedMuons[1]->pt(), matchedMuons[1]->eta(),
+                            matchedMuons[1]->phi(), 0.105);
+        double invariantMass = (muon1 + muon2).M();
+        std::cout << "Invariant mass of the two gen-matched muons: " << invariantMass
+                    << std::endl;
     }
 }
 DEFINE_FWK_MODULE(ntuplizer);
