@@ -625,7 +625,7 @@ void ntuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
                 const reco::GenParticle& p(prunedGen->at(goodGenMuons_indices[j]));
                 TVector3 gen_vertex = TVector3();
                 gen_vertex.SetXYZ(p.vx(), p.vy(), p.vz());
-                if (reco::deltaR(*candidateTrack, p) < 0.1) {
+                if (reco::deltaR(*candidateTrack, p) < 0.3) {
                     genmu_vertex_r[ndmu] = sqrt(gen_vertex.X() * gen_vertex.X() +
                                                 gen_vertex.Y() * gen_vertex.Y());
                     genmu_vertex_z[ndmu] = gen_vertex.Z();
