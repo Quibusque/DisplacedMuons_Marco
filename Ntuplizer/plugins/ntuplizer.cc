@@ -201,6 +201,10 @@ class ntuplizer : public edm::one::EDAnalyzer<edm::one::SharedResources> {
     // Variables by Marco
     Float_t dmu_t0_InOut[200] = {0.};
     Float_t dmu_t0_OutIn[200] = {0.};
+    Float_t dmu_vertex_r[200] = {0.};
+    Float_t dmu_vertex_z[200] = {0.};
+    Float_t genmu_vertex_r[200] = {0.};
+    Float_t genmu_vertex_z[200] = {0.};
 
 
     // Variables for gen matching
@@ -346,6 +350,10 @@ void ntuplizer::beginJob() {
                      "dmu_numberOfMatchedRPCLayers[ndmu]/I");
     tree_out->Branch("dmu_t0_InOut", dmu_t0_InOut, "dmu_t0_InOut[ndmu]/F");
     tree_out->Branch("dmu_t0_OutIn", dmu_t0_OutIn, "dmu_t0_OutIn[ndmu]/F");
+    tree_out->Branch("dmu_vertex_r", dmu_vertex_r, "dmu_vertex_r[ndmu]/F");
+    tree_out->Branch("dmu_vertex_z", dmu_vertex_z, "dmu_vertex_z[ndmu]/F");
+    tree_out->Branch("genmu_vertex_r", genmu_vertex_r, "genmu_vertex_r[ndmu]/F");
+    tree_out->Branch("genmu_vertex_z", genmu_vertex_z, "genmu_vertex_z[ndmu]/F");
     // dmu_dsa
     tree_out->Branch("dmu_dsa_pt", dmu_dsa_pt, "dmu_dsa_pt[ndmu]/F");
     tree_out->Branch("dmu_dsa_eta", dmu_dsa_eta, "dmu_dsa_eta[ndmu]/F");
@@ -609,12 +617,18 @@ void ntuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
             TVector3 candidate_vertex = TVector3();
             candidate_vertex.SetXYZ(candidateTrack->vx(), candidateTrack->vy(),
                                     candidateTrack->vz());
+            dmu_vertex_r[ndmu] = sqrt(candidate_vertex.X() * candidate_vertex.X() +
+                                      candidate_vertex.Y() * candidate_vertex.Y());
+            dmu_vertex_z[ndmu] = candidate_vertex.Z();
 
             for (Int_t j = 0; j < n_goodGenMuons; j++) {
                 const reco::GenParticle& p(prunedGen->at(goodGenMuons_indices[j]));
                 TVector3 gen_vertex = TVector3();
                 gen_vertex.SetXYZ(p.vx(), p.vy(), p.vz());
                 if (reco::deltaR(*candidateTrack, p) < 0.1) {
+                    genmu_vertex_r[ndmu] = sqrt(gen_vertex.X() * gen_vertex.X() +
+                                                gen_vertex.Y() * gen_vertex.Y());
+                    genmu_vertex_z[ndmu] = gen_vertex.Z();
                     dmu_hasGenMatch[ndmu] = true;
                     dmu_genMatchedIndex[ndmu] = goodGenMuons_indices[j];
                     matchedMuons.push_back(&dmuon);
@@ -783,9 +797,6 @@ void ntuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
             }
         }
 
-        // ----------------------------------
-        // Tag and probe code
-        // ----------------------------------
         // Check if trigger fired:
         const edm::TriggerNames& names = iEvent.triggerNames(*triggerBits);
         unsigned int ipath = 0;
@@ -843,9 +854,13 @@ void ntuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
                     if (abs(recoPt - genPt) < abs(recoPt_j - genPt)) {
                         dmu_hasGenMatch[j] = false;
                         dmu_genMatchedIndex[j] = -1;
+                        genmu_vertex_r[j] = -1;
+                        genmu_vertex_z[j] = -1;
                     } else {
                         dmu_hasGenMatch[i] = false;
                         dmu_genMatchedIndex[i] = -1;
+                        genmu_vertex_r[i] = -1;
+                        genmu_vertex_z[i] = -1;
                     }
                 }
             }
