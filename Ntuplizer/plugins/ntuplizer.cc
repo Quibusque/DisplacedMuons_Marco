@@ -21,12 +21,18 @@
 #include "FWCore/Framework/interface/Frameworkfwd.h"
 #include "FWCore/Framework/interface/MakerMacros.h"
 #include "FWCore/Framework/interface/one/EDAnalyzer.h"
+#include "FWCore/Framework/interface/EventSetup.h"
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
 #include "SimDataFormats/GeneratorProducts/interface/HepMCProduct.h"
 #include "TFile.h"
 #include "TH1F.h"
 #include "TLorentzVector.h"
 #include "TTree.h"
+#include "TrackPropagation/SteppingHelixPropagator/interface/SteppingHelixPropagator.h"
+#include "TrackingTools/TrajectoryState/interface/TrajectoryStateOnSurface.h"
+#include "TrackingTools/TrajectoryState/interface/FreeTrajectoryState.h"
+#include "TrackingTools/TrajectoryParametrization/interface/GlobalTrajectoryParameters.h"
+#include "TrackingTools/Records/interface/TrackingComponentsRecord.h"
 
 namespace MTYPE {
 const char* DSA = "DSA";
@@ -175,6 +181,9 @@ class ntuplizer : public edm::one::EDAnalyzer<edm::one::SharedResources> {
     edm::EDGetTokenT<edm::View<reco::GenParticle>> prunedGenToken;
     edm::Handle<edm::View<reco::GenParticle>> prunedGen;
 
+    // Propagator
+    edm::ESGetToken<Propagator, TrackingComponentsRecord> thePropToken;
+
     // Trigger tags
     std::vector<std::string> HLTPaths_;
     bool triggerPass[200] = {false};
@@ -306,6 +315,8 @@ ntuplizer::ntuplizer(const edm::ParameterSet& iConfig) {
     if (isMCSignal) {
         prunedGenToken = consumes<edm::View<reco::GenParticle>>(
             parameters.getParameter<edm::InputTag>("prunedGenParticles"));
+        thePropToken = esConsumes(
+            edm::ESInputTag("", iConfig.getParameter<std::string>("propagator")));
     }
 
     triggerBits_ = consumes<edm::TriggerResults>(parameters.getParameter<edm::InputTag>("bits"));
@@ -453,6 +464,11 @@ void ntuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 
     if (isMCSignal) {
         iEvent.getByToken(prunedGenToken, prunedGen);
+          const Propagator *prop = &iSetup.getData(thePropToken);
+        if (!dynamic_cast<const SteppingHelixPropagator *>(prop)) {
+            edm::LogWarning("BadConfig") << "@SUB=CosmicGenFilterHelix::getPropagator"
+                                        << "Not a SteppingHelixPropagator!";
+        }
     }
     iEvent.getByToken(triggerBits_, triggerBits);
 
