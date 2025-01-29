@@ -1,0 +1,1 @@
+successes=$(grep -c "Min index match: 1" chi2.txt); failures=$(grep -c "Min index match: 0" chi2.txt); total=$((successes + failures)); ratio=$(echo "scale=2; $successes / $total" | bc); echo "Successes: $successes"; echo "Failures: $failures"; echo "Success/Total Ratio: $ratio"
