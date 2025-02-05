@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <fstream>
 #include <iostream>
 #include <memory>
 #include <string>
@@ -7,6 +8,9 @@
 #include "DataFormats/Candidate/interface/Candidate.h"
 #include "DataFormats/Common/interface/Handle.h"
 #include "DataFormats/Common/interface/TriggerResults.h"
+#include "DataFormats/GeometrySurface/interface/Cylinder.h"
+#include "DataFormats/GeometrySurface/interface/Plane.h"
+#include "DataFormats/GeometrySurface/interface/Surface.h"
 #include "DataFormats/MuonReco/interface/Muon.h"
 #include "DataFormats/PatCandidates/interface/Muon.h"
 #include "DataFormats/PatCandidates/interface/PackedTriggerPrescales.h"
@@ -18,21 +22,25 @@
 #include "FWCore/Framework/interface/ConsumesCollector.h"
 #include "FWCore/Framework/interface/ESHandle.h"
 #include "FWCore/Framework/interface/Event.h"
+#include "FWCore/Framework/interface/EventSetup.h"
 #include "FWCore/Framework/interface/Frameworkfwd.h"
 #include "FWCore/Framework/interface/MakerMacros.h"
 #include "FWCore/Framework/interface/one/EDAnalyzer.h"
-#include "FWCore/Framework/interface/EventSetup.h"
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
+#include "MagneticField/Engine/interface/MagneticField.h"
+#include "MagneticField/Records/interface/IdealMagneticFieldRecord.h"
 #include "SimDataFormats/GeneratorProducts/interface/HepMCProduct.h"
 #include "TFile.h"
 #include "TH1F.h"
 #include "TLorentzVector.h"
 #include "TTree.h"
 #include "TrackPropagation/SteppingHelixPropagator/interface/SteppingHelixPropagator.h"
-#include "TrackingTools/TrajectoryState/interface/TrajectoryStateOnSurface.h"
-#include "TrackingTools/TrajectoryState/interface/FreeTrajectoryState.h"
-#include "TrackingTools/TrajectoryParametrization/interface/GlobalTrajectoryParameters.h"
 #include "TrackingTools/Records/interface/TrackingComponentsRecord.h"
+#include "TrackingTools/TrajectoryParametrization/interface/GlobalTrajectoryParameters.h"
+#include "TrackingTools/TrajectoryState/interface/FreeTrajectoryState.h"
+#include "TrackingTools/TrajectoryState/interface/TrajectoryStateOnSurface.h"
+
+typedef std::pair<TrajectoryStateOnSurface, double> TsosPath;
 
 namespace MTYPE {
 const char* DSA = "DSA";
@@ -142,6 +150,104 @@ bool passProbeID(const reco::Track* track, const TVector3& v_tag, const char* mt
     return passID;
 }
 
+bool propagateToSurface(Float_t radius, Float_t minZ, Float_t maxZ, const FreeTrajectoryState& fts,
+                        const Propagator* propagator, TsosPath& tsosPath) {
+    const Surface::RotationType dummyRot;
+    Cylinder::CylinderPointer theTargetCylinder =
+        Cylinder::build(Surface::PositionType(0., 0., 0.), dummyRot, radius);
+    Plane::PlanePointer theTargetPlaneMin =
+        Plane::build(Surface::PositionType(0., 0., minZ), dummyRot);
+    Plane::PlanePointer theTargetPlaneMax =
+        Plane::build(Surface::PositionType(0., 0., maxZ), dummyRot);
+
+    // First try to propagate to the cylinder
+    tsosPath = propagator->propagateWithPath(fts, *theTargetCylinder);
+    if (tsosPath.first.isValid() && tsosPath.first.globalPosition().z() >= minZ &&
+        tsosPath.first.globalPosition().z() <= maxZ) {
+        return true;
+    }
+
+    // If propagation to the cylinder is not valid, try to propagate to the planes
+    tsosPath = propagator->propagateWithPath(fts, *theTargetPlaneMin);
+    if (tsosPath.first.isValid()) {
+        return true;
+    }
+
+    tsosPath = propagator->propagateWithPath(fts, *theTargetPlaneMax);
+    return tsosPath.first.isValid();
+}
+
+std::pair<GlobalTrajectoryParameters, bool> myGenMatching(const reco::GenParticle& genParticle,
+                                                          const reco::Track* recoTrack,
+                                                          const MagneticField* magField,
+                                                          const Propagator* propagator) {
+    // The Gen Matching is done by propagating the particles to a common surface and doing a check
+    // based on the chi-square of the difference between the momenta
+
+    // First barrel muon chambers for the radius and first CSC station for the z
+    Float_t radius = 420.0;
+    Float_t minZ = -700.0;
+    Float_t maxZ = 700.0;
+
+    // Initial states
+    GlobalPoint genVertex(genParticle.vx(), genParticle.vy(), genParticle.vz());
+    GlobalVector genMomentum(genParticle.px(), genParticle.py(), genParticle.pz());
+    int genCharge = genParticle.charge();
+    FreeTrajectoryState genFTS(genVertex, genMomentum, genCharge, magField);
+    TsosPath genTsosPath;
+
+    GlobalPoint recoVertex(recoTrack->vx(), recoTrack->vy(), recoTrack->vz());
+    GlobalVector recoMomentum(recoTrack->px(), recoTrack->py(), recoTrack->pz());
+    int recoCharge = recoTrack->charge();
+    FreeTrajectoryState recoFTS(recoVertex, recoMomentum, recoCharge, magField);
+    TsosPath recoTsosPath;
+
+    // Propagate the particles to the target surface
+    bool genPropagationGood =
+        propagateToSurface(radius, minZ, maxZ, genFTS, propagator, genTsosPath);
+    bool recoPropagationGood =
+        propagateToSurface(radius, minZ, maxZ, recoFTS, propagator, recoTsosPath);
+
+    if (!genPropagationGood) {
+        // std::cout << "Gen propagation failed\n"
+        //           << "with vertex: (" << genVertex.x() << ", " << genVertex.y() << ", "
+        //           << genVertex.z() << ")\n and momentum: (" << genMomentum.x() << ", "
+        //           << genMomentum.y() << ", " << genMomentum.z() << ")\n";
+        // return std::make_pair(GlobalTrajectoryParameters(), false);
+        std::cout << "Gen propagation failed\n with vertex R = " << genVertex.perp()
+                  << " and z = " << genVertex.z() << "\n and momentum R = " << genMomentum.perp()
+                  << " and z = " << genMomentum.z() << "\n";
+        return std::make_pair(GlobalTrajectoryParameters(), false);
+    }
+    if (!recoPropagationGood) {
+        std::cout << "Reco propagation failed\n with vertex R = " << recoVertex.perp()
+                  << " and z = " << recoVertex.z() << "\n and momentum R = " << recoMomentum.perp()
+                  << " and z = " << recoMomentum.z() << "\n";
+        return std::make_pair(GlobalTrajectoryParameters(), false);
+    }
+
+    // if (!genPropagationGood || !recoPropagationGood)
+    //     return std::make_pair(GlobalTrajectoryParameters(), false);
+
+    // Calculate the residuals
+    GlobalPoint genPositionPropagated = genTsosPath.first.globalPosition();
+    GlobalVector genMomentumPropagated = genTsosPath.first.globalMomentum();
+    GlobalPoint recoPositionPropagated = recoTsosPath.first.globalPosition();
+    GlobalVector recoMomentumPropagated = recoTsosPath.first.globalMomentum();
+
+    GlobalPoint residualPosition =
+        GlobalPoint(genPositionPropagated.x() - recoPositionPropagated.x(),
+                    genPositionPropagated.y() - recoPositionPropagated.y(),
+                    genPositionPropagated.z() - recoPositionPropagated.z());
+
+    GlobalVector residualMomentum = genMomentumPropagated - recoMomentumPropagated;
+
+    GlobalTrajectoryParameters residualParams(residualPosition, residualMomentum, genCharge,
+                                              magField);
+
+    return std::make_pair(residualParams, true);
+}
+
 class ntuplizer : public edm::one::EDAnalyzer<edm::one::SharedResources> {
    public:
     explicit ntuplizer(const edm::ParameterSet&);
@@ -160,6 +266,9 @@ class ntuplizer : public edm::one::EDAnalyzer<edm::one::SharedResources> {
     bool isAOD = false;
     bool isCosmics = false;
     bool isMCSignal = false;
+
+    // std::ofstream residualsfile;
+
     //
     // --- Tokens and Handles
     //
@@ -183,6 +292,10 @@ class ntuplizer : public edm::one::EDAnalyzer<edm::one::SharedResources> {
 
     // Propagator
     edm::ESGetToken<Propagator, TrackingComponentsRecord> thePropToken;
+
+    // Magnetic Field
+    edm::ESGetToken<MagneticField, IdealMagneticFieldRecord> theMagFieldToken;
+    edm::ESHandle<MagneticField> magField_;
 
     // Trigger tags
     std::vector<std::string> HLTPaths_;
@@ -215,10 +328,21 @@ class ntuplizer : public edm::one::EDAnalyzer<edm::one::SharedResources> {
     Float_t genmu_vertex_r[200] = {0.};
     Float_t genmu_vertex_z[200] = {0.};
 
-
     // Variables for gen matching
     bool dmu_hasGenMatch[200] = {false};
     Int_t dmu_genMatchedIndex[200] = {0};
+    Float_t dmu_residual_r[200] = {0.};
+    Float_t dmu_residual_theta[200] = {0.};
+    Float_t dmu_residual_phi[200] = {0.};
+    Float_t dmu_residual_p_r[200] = {0.};
+    Float_t dmu_residual_p_theta[200] = {0.};
+    Float_t dmu_residual_p_phi[200] = {0.};
+    Float_t dmu_residual_x[200] = {0.};
+    Float_t dmu_residual_y[200] = {0.};
+    Float_t dmu_residual_z[200] = {0.};
+    Float_t dmu_residual_p_x[200] = {0.};
+    Float_t dmu_residual_p_y[200] = {0.};
+    Float_t dmu_residual_p_z[200] = {0.};
 
     Float_t dmu_dsa_pt[200] = {0.};
     Float_t dmu_dsa_eta[200] = {0.};
@@ -315,8 +439,9 @@ ntuplizer::ntuplizer(const edm::ParameterSet& iConfig) {
     if (isMCSignal) {
         prunedGenToken = consumes<edm::View<reco::GenParticle>>(
             parameters.getParameter<edm::InputTag>("prunedGenParticles"));
-        thePropToken = esConsumes(
-            edm::ESInputTag("", iConfig.getParameter<std::string>("propagator")));
+        thePropToken =
+            esConsumes(edm::ESInputTag("", iConfig.getParameter<std::string>("propagator")));
+        theMagFieldToken = esConsumes<MagneticField, IdealMagneticFieldRecord>();
     }
 
     triggerBits_ = consumes<edm::TriggerResults>(parameters.getParameter<edm::InputTag>("bits"));
@@ -328,6 +453,10 @@ ntuplizer::~ntuplizer() {}
 // beginJob (Before first event)
 void ntuplizer::beginJob() {
     std::cout << "Begin Job" << std::endl;
+
+    // Open the chi2 file
+    // residualsfile.open("residuals.csv");
+    // residualsfile << "R, theta, phi, p_R, p_theta, p_phi, x, y, z, p_x, p_y, p_z\n";
 
     // Init the file and the TTree
     output_filename = parameters.getParameter<std::string>("nameOfOutput");
@@ -433,6 +562,19 @@ void ntuplizer::beginJob() {
     if (isMCSignal) {
         tree_out->Branch("dmu_hasGenMatch", dmu_hasGenMatch, "dmu_hasGenMatch[ndmu]/O");
         tree_out->Branch("dmu_genMatchedIndex", dmu_genMatchedIndex, "dmu_genMatchedIndex[ndmu]/I");
+        tree_out->Branch("dmu_residual_r", dmu_residual_r, "dmu_residual_r[ndmu]/F");
+        tree_out->Branch("dmu_residual_theta", dmu_residual_theta, "dmu_residual_theta[ndmu]/F");
+        tree_out->Branch("dmu_residual_phi", dmu_residual_phi, "dmu_residual_phi[ndmu]/F");
+        tree_out->Branch("dmu_residual_p_r", dmu_residual_p_r, "dmu_residual_p_r[ndmu]/F");
+        tree_out->Branch("dmu_residual_p_theta", dmu_residual_p_theta,
+                         "dmu_residual_p_theta[ndmu]/F");
+        tree_out->Branch("dmu_residual_p_phi", dmu_residual_p_phi, "dmu_residual_p_phi[ndmu]/F");
+        tree_out->Branch("dmu_residual_x", dmu_residual_x, "dmu_residual_x[ndmu]/F");
+        tree_out->Branch("dmu_residual_y", dmu_residual_y, "dmu_residual_y[ndmu]/F");
+        tree_out->Branch("dmu_residual_z", dmu_residual_z, "dmu_residual_z[ndmu]/F");
+        tree_out->Branch("dmu_residual_p_x", dmu_residual_p_x, "dmu_residual_p_x[ndmu]/F");
+        tree_out->Branch("dmu_residual_p_y", dmu_residual_p_y, "dmu_residual_p_y[ndmu]/F");
+        tree_out->Branch("dmu_residual_p_z", dmu_residual_p_z, "dmu_residual_p_z[ndmu]/F");
     }
     // Trigger branches
     for (unsigned int ihlt = 0; ihlt < HLTPaths_.size(); ihlt++) {
@@ -443,6 +585,7 @@ void ntuplizer::beginJob() {
 // endJob (After event loop has finished)
 void ntuplizer::endJob() {
     std::cout << "End Job" << std::endl;
+    // residualsfile.close();
     file_out->cd();
     tree_out->Write();
     counts->Write();
@@ -462,13 +605,17 @@ void ntuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
     iEvent.getByToken(dsaToken, dsas);
     iEvent.getByToken(dmuToken, dmuons);
 
+    const MagneticField* magField = nullptr;
+    const Propagator* propagator = nullptr;
     if (isMCSignal) {
         iEvent.getByToken(prunedGenToken, prunedGen);
-          const Propagator *prop = &iSetup.getData(thePropToken);
-        if (!dynamic_cast<const SteppingHelixPropagator *>(prop)) {
+        propagator = &iSetup.getData(thePropToken);
+        if (!dynamic_cast<const SteppingHelixPropagator*>(propagator)) {
             edm::LogWarning("BadConfig") << "@SUB=CosmicGenFilterHelix::getPropagator"
-                                        << "Not a SteppingHelixPropagator!";
+                                         << "Not a SteppingHelixPropagator!";
         }
+        magField_ = iSetup.getHandle(theMagFieldToken);
+        magField = magField_.product();
     }
     iEvent.getByToken(triggerBits_, triggerBits);
 
@@ -484,7 +631,7 @@ void ntuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
     // genParticles Collection
     // ----------------------------------
     Int_t nprugenmu = 0;
-    int goodGenMuons_indices[10] = {-1};
+    std::vector<int> goodGenMuons_indices;
     int n_goodGenMuons = 0;
     if (isMCSignal) {
         for (unsigned int i = 0; i < prunedGen->size(); i++) {
@@ -492,7 +639,7 @@ void ntuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
             if (abs(p.pdgId()) == 13 && p.status() == 1) {  // Check if the particle is a muon
                 // Check if the muon has a mother with pdgId 1023
                 if (hasMotherWithPdgId(&p, 1023)) {
-                    goodGenMuons_indices[n_goodGenMuons] = i;
+                    goodGenMuons_indices.push_back(i);
                     n_goodGenMuons++;
                 }
             }
@@ -505,6 +652,9 @@ void ntuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
     // ----------------------------------
     ndmu = 0;
     std::vector<const reco::Muon*> matchedMuons;
+    std::map<std::pair<int, int>, float> residuals;
+    std::map<std::pair<int, int>, std::pair<GlobalTrajectoryParameters, bool>> matchResults;
+
     for (unsigned int i = 0; i < dmuons->size(); i++) {
         // std::cout << " - - ndmu: " << ndmu << std::endl;
         const reco::Muon& dmuon(dmuons->at(i));
@@ -519,6 +669,21 @@ void ntuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
         dmu_numberOfMatchedRPCLayers[ndmu] = dmuon.numberOfMatchedRPCLayers();
         dmu_t0_InOut[ndmu] = dmuon.time().timeAtIpInOut;
         dmu_t0_OutIn[ndmu] = dmuon.time().timeAtIpOutIn;
+        // Initialize the residuals to 9999
+        dmu_residual_r[ndmu] = 9999;
+        dmu_residual_theta[ndmu] = 9999;
+        dmu_residual_phi[ndmu] = 9999;
+        dmu_residual_p_r[ndmu] = 9999;
+        dmu_residual_p_theta[ndmu] = 9999;
+        dmu_residual_p_phi[ndmu] = 9999;
+        dmu_residual_x[ndmu] = 9999;
+        dmu_residual_y[ndmu] = 9999;
+        dmu_residual_z[ndmu] = 9999;
+        dmu_residual_p_x[ndmu] = 9999;
+        dmu_residual_p_y[ndmu] = 9999;
+        dmu_residual_p_z[ndmu] = 9999;
+        dmu_hasGenMatch[ndmu] = false;
+        dmu_genMatchedIndex[ndmu] = -1;
 
         // Access the DGL track associated to the displacedMuon
         // std::cout << "isGlobalMuon: " << dmuon.isGlobalMuon() << std::endl;
@@ -618,9 +783,6 @@ void ntuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
         // Gen Matching part
         // ----------------------------------
         if (isMCSignal) {
-            dmu_hasGenMatch[ndmu] = false;
-            dmu_genMatchedIndex[ndmu] = -1;
-
             const reco::Track* candidateTrack = nullptr;
             if (dmuon.isGlobalMuon()) {
                 candidateTrack = (dmuon.combinedMuon()).get();
@@ -641,24 +803,16 @@ void ntuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
                 const reco::GenParticle& p(prunedGen->at(goodGenMuons_indices[j]));
                 TVector3 gen_vertex = TVector3();
                 gen_vertex.SetXYZ(p.vx(), p.vy(), p.vz());
-                if (reco::deltaR(*candidateTrack, p) < 0.3) {
-                    genmu_vertex_r[ndmu] = sqrt(gen_vertex.X() * gen_vertex.X() +
-                                                gen_vertex.Y() * gen_vertex.Y());
-                    genmu_vertex_z[ndmu] = gen_vertex.Z();
-                    dmu_hasGenMatch[ndmu] = true;
-                    dmu_genMatchedIndex[ndmu] = goodGenMuons_indices[j];
-                    matchedMuons.push_back(&dmuon);
-                    // Debugging: Print the information of the reco muon and gen muon
-                    // std::cout << ">> Displaced muon with\nvertex at (" << candidate_vertex.X()
-                    //           << ", " << candidate_vertex.Y() << ", " << candidate_vertex.Z()
-                    //           << ") and pT = " << candidateTrack->pt()
-                    //           << " eta = " << candidateTrack->eta()
-                    //           << " phi = " << candidateTrack->phi()
-                    //           << " is matched to gen muon with\nvertex at (" << gen_vertex.X()
-                    //           << ", " << gen_vertex.Y() << ", " << gen_vertex.Z()
-                    //           << ") and pT = " << p.pt() << " eta = " << p.eta()
-                    //           << " phi = " << p.phi() << std::endl;
-                }
+
+                std::pair<GlobalTrajectoryParameters, bool> genMatchResult =
+                    myGenMatching(p, candidateTrack, magField, propagator);
+                bool matchGood = genMatchResult.second;
+                GlobalPoint residualPoint = genMatchResult.first.position();
+                GlobalVector residualMomentum = genMatchResult.first.momentum();
+                Float_t current_residual =
+                    matchGood ? residualPoint.mag() + residualMomentum.mag() : -1;
+                residuals[{j, i}] = current_residual;
+                matchResults[{j, i}] = genMatchResult;
             }
         }
         ndmu++;
@@ -831,69 +985,130 @@ void ntuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
             triggerPass[ipath] = fired;
             ipath++;
         }
+    }
+    // ----------------------------------
+    // Gen Matching continued
+    // ----------------------------------
 
-        //-> Fill tree
-        tree_out->Fill();
+    // Initial greedy assignment
+    std::vector<int> assignedDisplacedMuons(dmuons->size(), -1);
+    for (Int_t j = 0; j < n_goodGenMuons; j++) {
+        int best_displacedMuon = -1;
+        float best_score = std::numeric_limits<float>::infinity();
+        for (unsigned int i = 0; i < dmuons->size(); i++) {
+            if (assignedDisplacedMuons[i] == -1 && residuals[{j, i}] < best_score) {
+                best_displacedMuon = i;
+                best_score = residuals[{j, i}];
+            }
+        }
+        if (best_displacedMuon != -1) {
+            // std::cout << "Assigning gen muon " << j << " to displaced muon " <<
+            // best_displacedMuon
+            //           << std::endl;
+            dmu_genMatchedIndex[best_displacedMuon] = j;
+            dmu_hasGenMatch[best_displacedMuon] = true;
+            assignedDisplacedMuons[best_displacedMuon] = j;
+        }
     }
 
-    // Re-loop over the reco muons and check if multiple reco muons are matched to the
-    // same gen muon. If that is the case, you should only keep the one whose pt is
-    // closer to the gen muon pt.
-    if (isMCSignal) {
-        for (int i = 0; i < ndmu; ++i) {
-            if (!dmu_hasGenMatch[i]) continue;
-
-            int genIndex = dmu_genMatchedIndex[i];
-            float recoPt = 0;
-            if (dmu_isDGL[i]) {
-                recoPt = dmu_dgl_pt[i];
-            } else if (dmu_isDSA[i]) {
-                recoPt = dmu_dsa_pt[i];
-            } else if (dmu_isDTK[i]) {
-                recoPt = dmu_dtk_pt[i];
-            }
-
-            for (int j = i + 1; j < ndmu; ++j) {
-                if (dmu_genMatchedIndex[j] == genIndex) {
-                    float recoPt_j = 0;
-                    if (dmu_isDGL[j]) {
-                        recoPt_j = dmu_dgl_pt[j];
-                    } else if (dmu_isDSA[j]) {
-                        recoPt_j = dmu_dsa_pt[j];
-                    } else if (dmu_isDTK[j]) {
-                        recoPt_j = dmu_dtk_pt[j];
-                    }
-
-                    const reco::GenParticle& genMuon = prunedGen->at(genIndex);
-                    float genPt = genMuon.pt();
-
-                    if (abs(recoPt - genPt) < abs(recoPt_j - genPt)) {
+    // Conflict resolution (Reassign if needed)
+    for (unsigned int i = 0; i < dmuons->size(); i++) {
+        if (dmu_hasGenMatch[i]) {
+            int genMuonIndex = dmu_genMatchedIndex[i];
+            // std::cout << "Checking dmuon " << i << " with gen match index " << genMuonIndex
+            //           << std::endl;
+            for (unsigned int j = 0; j < dmuons->size(); j++) {
+                if (i != j && dmu_hasGenMatch[j] && dmu_genMatchedIndex[j] == genMuonIndex) {
+                    // std::cout << "Conflict found between dmuon " << i << " and dmuon " << j
+                    //           << std::endl;
+                    if (residuals[{genMuonIndex, i}] < residuals[{genMuonIndex, j}]) {
+                        // std::cout << "dmuon " << i << " has a smaller residual than dmuon " << j
+                        //           << std::endl;
                         dmu_hasGenMatch[j] = false;
                         dmu_genMatchedIndex[j] = -1;
-                        genmu_vertex_r[j] = -1;
-                        genmu_vertex_z[j] = -1;
+                        assignedDisplacedMuons[j] = -1;
+                        // std::cout << "dmuon " << j << " gen match removed" << std::endl;
                     } else {
+                        // std::cout << "dmuon " << j << " has a smaller residual than dmuon " << i
+                        //           << std::endl;
                         dmu_hasGenMatch[i] = false;
                         dmu_genMatchedIndex[i] = -1;
-                        genmu_vertex_r[i] = -1;
-                        genmu_vertex_z[i] = -1;
+                        assignedDisplacedMuons[i] = -1;
+                        // std::cout << "dmuon " << i << " gen match removed" << std::endl;
                     }
                 }
             }
         }
     }
 
-    // // Debugging: just check if this is reasonable
-    // if (matchedMuons.size() == 2 &&
-    //     matchedMuons[0]->charge() != matchedMuons[1]->charge()) {
-    //     TLorentzVector muon1, muon2;
-    //     muon1.SetPtEtaPhiM(matchedMuons[0]->pt(), matchedMuons[0]->eta(),
-    //                         matchedMuons[0]->phi(), 0.105);
-    //     muon2.SetPtEtaPhiM(matchedMuons[1]->pt(), matchedMuons[1]->eta(),
-    //                         matchedMuons[1]->phi(), 0.105);
-    //     double invariantMass = (muon1 + muon2).M();
-    //     std::cout << "Invariant mass of the two gen-matched muons: " << invariantMass
-    //                 << std::endl;
-    // }
+    // Reassign gen muons to the best available displaced muon after conflict resolution
+    for (Int_t j = 0; j < n_goodGenMuons; j++) {
+        if (std::find(assignedDisplacedMuons.begin(), assignedDisplacedMuons.end(), j) ==
+            assignedDisplacedMuons.end()) {
+            int best_displacedMuon = -1;
+            float best_score = std::numeric_limits<float>::infinity();
+            for (unsigned int i = 0; i < dmuons->size(); i++) {
+                if (assignedDisplacedMuons[i] == -1 && residuals[{j, i}] < best_score) {
+                    best_displacedMuon = i;
+                    best_score = residuals[{j, i}];
+                }
+            }
+            if (best_displacedMuon != -1) {
+                // std::cout << "Reassigning gen muon " << j << " to displaced muon "
+                //           << best_displacedMuon << std::endl;
+                dmu_genMatchedIndex[best_displacedMuon] = j;
+                dmu_hasGenMatch[best_displacedMuon] = true;
+                assignedDisplacedMuons[best_displacedMuon] = j;
+            }
+        }
+    }
+
+    // Assign residuals
+    for (unsigned int i = 0; i < dmuons->size(); i++) {
+        // std::cout << "assigning residuals for dmuon " << i << std::endl;
+        if (dmu_hasGenMatch[i]) {
+            int genMuonIndex = dmu_genMatchedIndex[i];
+            // Check arrays out of bounds
+            if (!(genMuonIndex >= 0 && genMuonIndex < n_goodGenMuons)) {
+                // std::cerr << "GenMuonIndex out of bounds: " << genMuonIndex
+                //           << " (n_goodGenMuons: " << n_goodGenMuons << ")" << std::endl;
+                continue;
+            }
+            std::pair<GlobalTrajectoryParameters, bool> currentMatchResult =
+                matchResults[{genMuonIndex, i}];
+            GlobalTrajectoryParameters trajResidual = currentMatchResult.first;
+            bool matchGood = currentMatchResult.second;
+            if (matchGood) {
+                dmu_residual_r[i] = trajResidual.position().perp();
+                dmu_residual_theta[i] = trajResidual.position().theta();
+                dmu_residual_phi[i] = trajResidual.position().phi();
+                dmu_residual_p_r[i] = trajResidual.momentum().perp();
+                dmu_residual_p_theta[i] = trajResidual.momentum().theta();
+                dmu_residual_p_phi[i] = trajResidual.momentum().phi();
+                dmu_residual_x[i] = trajResidual.position().x();
+                dmu_residual_y[i] = trajResidual.position().y();
+                dmu_residual_z[i] = trajResidual.position().z();
+                dmu_residual_p_x[i] = trajResidual.momentum().x();
+                dmu_residual_p_y[i] = trajResidual.momentum().y();
+                dmu_residual_p_z[i] = trajResidual.momentum().z();
+            } else {
+                dmu_residual_r[i] = 9999;
+                dmu_residual_theta[i] = 9999;
+                dmu_residual_phi[i] = 9999;
+                dmu_residual_p_r[i] = 9999;
+                dmu_residual_p_theta[i] = 9999;
+                dmu_residual_p_phi[i] = 9999;
+                dmu_residual_x[i] = 9999;
+                dmu_residual_y[i] = 9999;
+                dmu_residual_z[i] = 9999;
+                dmu_residual_p_x[i] = 9999;
+                dmu_residual_p_y[i] = 9999;
+                dmu_residual_p_z[i] = 9999;
+            }
+        }
+    }
+
+    //-> Fill tree
+    tree_out->Fill();
 }
 DEFINE_FWK_MODULE(ntuplizer);
