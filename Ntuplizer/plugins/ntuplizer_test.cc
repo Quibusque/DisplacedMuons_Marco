@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <fstream>
 #include <iostream>
+#include <limits>
 #include <memory>
 #include <string>
 #include <vector>
@@ -13,6 +14,7 @@
 #include "DataFormats/GeometrySurface/interface/Surface.h"
 #include "DataFormats/GeometryVector/interface/GlobalPoint.h"
 #include "DataFormats/GeometryVector/interface/GlobalVector.h"
+#include "DataFormats/Math/interface/AlgebraicROOTObjects.h"
 #include "DataFormats/MuonReco/interface/Muon.h"
 #include "DataFormats/PatCandidates/interface/Muon.h"
 #include "DataFormats/PatCandidates/interface/PackedTriggerPrescales.h"
@@ -31,112 +33,28 @@
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
 #include "MagneticField/Engine/interface/MagneticField.h"
 #include "MagneticField/Records/interface/IdealMagneticFieldRecord.h"
+#include "Math/Error.h"
 #include "SimDataFormats/GeneratorProducts/interface/HepMCProduct.h"
 #include "TFile.h"
 #include "TH1F.h"
 #include "TLorentzVector.h"
+#include "TMatrixF.h"
 #include "TTree.h"
 #include "TrackPropagation/SteppingHelixPropagator/interface/SteppingHelixPropagator.h"
 #include "TrackingTools/Records/interface/TrackingComponentsRecord.h"
+#include "TrackingTools/TrajectoryParametrization/interface/CartesianTrajectoryError.h"
+#include "TrackingTools/TrajectoryParametrization/interface/CurvilinearTrajectoryError.h"
 #include "TrackingTools/TrajectoryParametrization/interface/GlobalTrajectoryParameters.h"
 #include "TrackingTools/TrajectoryState/interface/FreeTrajectoryState.h"
 #include "TrackingTools/TrajectoryState/interface/TrajectoryStateOnSurface.h"
+#include "genmatching_utilities.h"
+#include "propagate_utilities.h"
 
-typedef std::pair<TrajectoryStateOnSurface, double> TsosPath;
-
-bool hasMotherWithPdgId_test(const reco::Candidate* particle, int pdgId) {
-    // Loop on mothers, if any, and return true if a mother with the specified pdgId is found
-    for (size_t i = 0; i < particle->numberOfMothers(); i++) {
-        const reco::Candidate* mother = particle->mother(i);
-        if (mother->pdgId() == pdgId || hasMotherWithPdgId_test(mother, pdgId)) {
-            return true;
-        }
-    }
-    return false;
-}
-
-bool propagateToSurface_test(float radius, float minZ, float maxZ, const FreeTrajectoryState& fts,
-                             const Propagator* propagator, TsosPath& tsosPath) {
-    const Surface::RotationType dummyRot;
-    Cylinder::CylinderPointer theTargetCylinder =
-        Cylinder::build(Surface::PositionType(0., 0., 0.), dummyRot, radius);
-    Plane::PlanePointer theTargetPlaneMin =
-        Plane::build(Surface::PositionType(0., 0., minZ), dummyRot);
-    Plane::PlanePointer theTargetPlaneMax =
-        Plane::build(Surface::PositionType(0., 0., maxZ), dummyRot);
-
-    bool goodResult = true;
-    tsosPath = propagator->propagateWithPath(fts, *theTargetCylinder);
-    if (!tsosPath.first.isValid()) {
-        goodResult = false;
-    } else if (tsosPath.first.globalPosition().z() < theTargetPlaneMin->position().z()) {
-        tsosPath = propagator->propagateWithPath(fts, *theTargetPlaneMin);
-        if (!tsosPath.first.isValid() ||
-            tsosPath.first.globalPosition().perp() > theTargetCylinder->radius()) {
-            goodResult = false;
-        }
-    } else if (tsosPath.first.globalPosition().z() > theTargetPlaneMax->position().z()) {
-        tsosPath = propagator->propagateWithPath(fts, *theTargetPlaneMax);
-        if (!tsosPath.first.isValid() ||
-            tsosPath.first.globalPosition().perp() > theTargetCylinder->radius()) {
-            goodResult = false;
-        }
-    }
-    return goodResult;
-}
-
-std::pair<GlobalTrajectoryParameters, bool> myGenMatching_test(const reco::GenParticle& genParticle,
-                                                               const reco::Track* recoTrack,
-                                                               const MagneticField* magField,
-                                                               const Propagator* propagator) {
-    // The Gen Matching is done by propagating the particles to a common surface and doing a check
-    // based on the chi-square of the difference between the momenta
-
-    // First barrel muon chambers for the radius and first CSC station for the z
-    Float_t radius = 420.0;
-    Float_t minZ = -700.0;
-    Float_t maxZ = 700.0;
-
-    // Initial states
-    GlobalPoint genVertex(genParticle.vx(), genParticle.vy(), genParticle.vz());
-    GlobalVector genMomentum(genParticle.px(), genParticle.py(), genParticle.pz());
-    int genCharge = genParticle.charge();
-    FreeTrajectoryState genFTS(genVertex, genMomentum, genCharge, magField);
-    TsosPath genTsosPath;
-
-    GlobalPoint recoVertex(recoTrack->vx(), recoTrack->vy(), recoTrack->vz());
-    GlobalVector recoMomentum(recoTrack->px(), recoTrack->py(), recoTrack->pz());
-    int recoCharge = recoTrack->charge();
-    FreeTrajectoryState recoFTS(recoVertex, recoMomentum, recoCharge, magField);
-    TsosPath recoTsosPath;
-
-    // Propagate the particles to the target surface
-    bool genPropagationGood =
-        propagateToSurface_test(radius, minZ, maxZ, genFTS, propagator, genTsosPath);
-    bool recoPropagationGood =
-        propagateToSurface_test(radius, minZ, maxZ, recoFTS, propagator, recoTsosPath);
-
-    if (!genPropagationGood || !recoPropagationGood)
-        return std::make_pair(GlobalTrajectoryParameters(), false);
-
-    // Calculate the residuals
-    GlobalPoint genPositionPropagated = genTsosPath.first.globalPosition();
-    GlobalVector genMomentumPropagated = genTsosPath.first.globalMomentum();
-    GlobalPoint recoPositionPropagated = recoTsosPath.first.globalPosition();
-    GlobalVector recoMomentumPropagated = recoTsosPath.first.globalMomentum();
-
-    GlobalPoint residualPosition =
-        GlobalPoint(genPositionPropagated.x() - recoPositionPropagated.x(),
-                    genPositionPropagated.y() - recoPositionPropagated.y(),
-                    genPositionPropagated.z() - recoPositionPropagated.z());
-
-    GlobalVector residualMomentum = genMomentumPropagated - recoMomentumPropagated;
-
-    GlobalTrajectoryParameters residualParams(residualPosition, residualMomentum, genCharge,
-                                              magField);
-
-    return std::make_pair(residualParams, true);
-}
+// For reference:
+// enum PropagationDirection { oppositeToMomentum, alongMomentum,
+//                             anyDirection, invalidDirection };
+// propagateToCylinder and propagateToZPlane are assuming tracks to be going from inside
+// to outside
 
 class ntuplizer_test : public edm::one::EDAnalyzer<edm::one::SharedResources> {
    public:
@@ -156,8 +74,6 @@ class ntuplizer_test : public edm::one::EDAnalyzer<edm::one::SharedResources> {
     bool isAOD = false;
     bool isCosmics = false;
     bool isMCSignal = false;
-
-    std::ofstream chi2file;
 
     //
     // --- Tokens and Handles
@@ -181,7 +97,8 @@ class ntuplizer_test : public edm::one::EDAnalyzer<edm::one::SharedResources> {
     edm::Handle<edm::View<reco::GenParticle>> prunedGen;
 
     // Propagator
-    edm::ESGetToken<Propagator, TrackingComponentsRecord> thePropToken;
+    edm::ESGetToken<Propagator, TrackingComponentsRecord> thePropAlongToken;
+    edm::ESGetToken<Propagator, TrackingComponentsRecord> thePropOppositeToken;
 
     // Magnetic Field
     edm::ESGetToken<MagneticField, IdealMagneticFieldRecord> theMagFieldToken;
@@ -221,6 +138,39 @@ class ntuplizer_test : public edm::one::EDAnalyzer<edm::one::SharedResources> {
     // Variables for gen matching
     bool dmu_hasGenMatch[200] = {false};
     Int_t dmu_genMatchedIndex[200] = {0};
+    Float_t dmu_reco_initial_r[200] = {9999.};
+    Float_t dmu_reco_initial_theta[200] = {9999.};
+    Float_t dmu_reco_initial_phi[200] = {9999.};
+    Float_t dmu_reco_final_r[200] = {9999.};
+    Float_t dmu_reco_final_theta[200] = {9999.};
+    Float_t dmu_reco_final_phi[200] = {9999.};
+    Float_t dmu_reco_initial_p_r[200] = {9999.};
+    Float_t dmu_reco_initial_p_theta[200] = {9999.};
+    Float_t dmu_reco_initial_p_phi[200] = {9999.};
+    Float_t dmu_reco_final_p_r[200] = {9999.};
+    Float_t dmu_reco_final_p_theta[200] = {9999.};
+    Float_t dmu_reco_final_p_phi[200] = {9999.};
+
+    Float_t dmu_gen_initial_r[200] = {9999.};
+    Float_t dmu_gen_initial_theta[200] = {9999.};
+    Float_t dmu_gen_initial_phi[200] = {9999.};
+    Float_t dmu_gen_final_r[200] = {9999.};
+    Float_t dmu_gen_final_theta[200] = {9999.};
+    Float_t dmu_gen_final_phi[200] = {9999.};
+    Float_t dmu_gen_initial_p_r[200] = {9999.};
+    Float_t dmu_gen_initial_p_theta[200] = {9999.};
+    Float_t dmu_gen_initial_p_phi[200] = {9999.};
+    Float_t dmu_gen_final_p_r[200] = {9999.};
+    Float_t dmu_gen_final_p_theta[200] = {9999.};
+    Float_t dmu_gen_final_p_phi[200] = {9999.};
+    Int_t dmu_propagationSurface[200] = {-1};
+    Float_t dmu_chi2[200] = {9999.};
+    Float_t dmu_chi2_x[200] = {9999.};
+    Float_t dmu_chi2_y[200] = {9999.};
+    Float_t dmu_chi2_z[200] = {9999.};
+    Float_t dmu_chi2_px[200] = {9999.};
+    Float_t dmu_chi2_py[200] = {9999.};
+    Float_t dmu_chi2_pz[200] = {9999.};
 
     Float_t dmu_dsa_pt[200] = {0.};
     Float_t dmu_dsa_eta[200] = {0.};
@@ -240,38 +190,6 @@ class ntuplizer_test : public edm::one::EDAnalyzer<edm::one::SharedResources> {
     Int_t dmu_dsa_dtStationsWithValidHits[200] = {0};
     Int_t dmu_dsa_cscStationsWithValidHits[200] = {0};
     Int_t dmu_dsa_nsegments[200] = {0};
-
-    Float_t dmu_dgl_pt[200] = {0.};
-    Float_t dmu_dgl_eta[200] = {0.};
-    Float_t dmu_dgl_phi[200] = {0.};
-    Float_t dmu_dgl_ptError[200] = {0.};
-    Float_t dmu_dgl_dxy[200] = {0.};
-    Float_t dmu_dgl_dz[200] = {0.};
-    Float_t dmu_dgl_normalizedChi2[200] = {0.};
-    Float_t dmu_dgl_charge[200] = {0.};
-    Int_t dmu_dgl_nMuonHits[200] = {0};
-    Int_t dmu_dgl_nValidMuonHits[200] = {0};
-    Int_t dmu_dgl_nValidMuonDTHits[200] = {0};
-    Int_t dmu_dgl_nValidMuonCSCHits[200] = {0};
-    Int_t dmu_dgl_nValidMuonRPCHits[200] = {0};
-    Int_t dmu_dgl_nValidStripHits[200] = {0};
-    Int_t dmu_dgl_nhits[200] = {0};
-
-    Float_t dmu_dtk_pt[200] = {0.};
-    Float_t dmu_dtk_eta[200] = {0.};
-    Float_t dmu_dtk_phi[200] = {0.};
-    Float_t dmu_dtk_ptError[200] = {0.};
-    Float_t dmu_dtk_dxy[200] = {0.};
-    Float_t dmu_dtk_dz[200] = {0.};
-    Float_t dmu_dtk_normalizedChi2[200] = {0.};
-    Float_t dmu_dtk_charge[200] = {0.};
-    Int_t dmu_dtk_nMuonHits[200] = {0};
-    Int_t dmu_dtk_nValidMuonHits[200] = {0};
-    Int_t dmu_dtk_nValidMuonDTHits[200] = {0};
-    Int_t dmu_dtk_nValidMuonCSCHits[200] = {0};
-    Int_t dmu_dtk_nValidMuonRPCHits[200] = {0};
-    Int_t dmu_dtk_nValidStripHits[200] = {0};
-    Int_t dmu_dtk_nhits[200] = {0};
 
     //
     // --- Output
@@ -304,11 +222,12 @@ ntuplizer_test::ntuplizer_test(const edm::ParameterSet& iConfig) {
     if (isMCSignal) {
         prunedGenToken = consumes<edm::View<reco::GenParticle>>(
             parameters.getParameter<edm::InputTag>("prunedGenParticles"));
-        thePropToken =
-            esConsumes(edm::ESInputTag("", iConfig.getParameter<std::string>("propagator")));
+        thePropAlongToken = esConsumes(
+            edm::ESInputTag("", parameters.getParameter<std::string>("propagatorAlong")));
+        thePropOppositeToken = esConsumes(
+            edm::ESInputTag("", parameters.getParameter<std::string>("propagatorOpposite")));
         theMagFieldToken = esConsumes<MagneticField, IdealMagneticFieldRecord>();
     }
-
     triggerBits_ = consumes<edm::TriggerResults>(parameters.getParameter<edm::InputTag>("bits"));
 }
 
@@ -318,10 +237,6 @@ ntuplizer_test::~ntuplizer_test() {}
 // beginJob (Before first event)
 void ntuplizer_test::beginJob() {
     std::cout << "Begin Job" << std::endl;
-
-    // Open the chi2 file
-    chi2file.open("chi2.txt");
-    chi2file << "deltaR_residual, residual, match?\n";
 
     // Init the file and the TTree
     output_filename = parameters.getParameter<std::string>("nameOfOutput");
@@ -385,33 +300,57 @@ void ntuplizer_test::beginJob() {
                      "dmu_dsa_dtStationsWithValidHits[ndmu]/I");
     tree_out->Branch("dmu_dsa_cscStationsWithValidHits", dmu_dsa_cscStationsWithValidHits,
                      "dmu_dsa_cscStationsWithValidHits[ndmu]/I");
-    // dmu_dgl
-    tree_out->Branch("dmu_dgl_pt", dmu_dgl_pt, "dmu_dgl_pt[ndmu]/F");
-    tree_out->Branch("dmu_dgl_eta", dmu_dgl_eta, "dmu_dgl_eta[ndmu]/F");
-    tree_out->Branch("dmu_dgl_phi", dmu_dgl_phi, "dmu_dgl_phi[ndmu]/F");
-    tree_out->Branch("dmu_dgl_ptError", dmu_dgl_ptError, "dmu_dgl_ptError[ndmu]/F");
-    tree_out->Branch("dmu_dgl_dxy", dmu_dgl_dxy, "dmu_dgl_dxy[ndmu]/F");
-    tree_out->Branch("dmu_dgl_dz", dmu_dgl_dz, "dmu_dgl_dz[ndmu]/F");
-    tree_out->Branch("dmu_dgl_normalizedChi2", dmu_dgl_normalizedChi2,
-                     "dmu_dgl_normalizedChi2[ndmu]/F");
-    tree_out->Branch("dmu_dgl_charge", dmu_dgl_charge, "dmu_dgl_charge[ndmu]/F");
-    tree_out->Branch("dmu_dgl_nMuonHits", dmu_dgl_nMuonHits, "dmu_dgl_nMuonHits[ndmu]/I");
-    tree_out->Branch("dmu_dgl_nValidMuonHits", dmu_dgl_nValidMuonHits,
-                     "dmu_dgl_nValidMuonHits[ndmu]/I");
-    tree_out->Branch("dmu_dgl_nValidMuonDTHits", dmu_dgl_nValidMuonDTHits,
-                     "dmu_dgl_nValidMuonDTHits[ndmu]/I");
-    tree_out->Branch("dmu_dgl_nValidMuonCSCHits", dmu_dgl_nValidMuonCSCHits,
-                     "dmu_dgl_nValidMuonCSCHits[ndmu]/I");
-    tree_out->Branch("dmu_dgl_nValidMuonRPCHits", dmu_dgl_nValidMuonRPCHits,
-                     "dmu_dgl_nValidMuonRPCHits[ndmu]/I");
-    tree_out->Branch("dmu_dgl_nValidStripHits", dmu_dgl_nValidStripHits,
-                     "dmu_dgl_nValidStripHits[ndmu]/I");
-    tree_out->Branch("dmu_dgl_nhits", dmu_dgl_nhits, "dmu_dgl_nhits[ndmu]/I");
 
     // Gen Matching branches
     if (isMCSignal) {
         tree_out->Branch("dmu_hasGenMatch", dmu_hasGenMatch, "dmu_hasGenMatch[ndmu]/O");
         tree_out->Branch("dmu_genMatchedIndex", dmu_genMatchedIndex, "dmu_genMatchedIndex[ndmu]/I");
+        tree_out->Branch("dmu_reco_initial_r", dmu_reco_initial_r, "dmu_reco_initial_r[ndmu]/F");
+        tree_out->Branch("dmu_reco_initial_theta", dmu_reco_initial_theta,
+                         "dmu_reco_initial_theta[ndmu]/F");
+        tree_out->Branch("dmu_reco_initial_phi", dmu_reco_initial_phi,
+                         "dmu_reco_initial_phi[ndmu]/F");
+        tree_out->Branch("dmu_reco_final_r", dmu_reco_final_r, "dmu_reco_final_r[ndmu]/F");
+        tree_out->Branch("dmu_reco_final_theta", dmu_reco_final_theta,
+                         "dmu_reco_final_theta[ndmu]/F");
+        tree_out->Branch("dmu_reco_final_phi", dmu_reco_final_phi, "dmu_reco_final_phi[ndmu]/F");
+        tree_out->Branch("dmu_reco_initial_p_r", dmu_reco_initial_p_r,
+                         "dmu_reco_initial_p_r[ndmu]/F");
+        tree_out->Branch("dmu_reco_initial_p_theta", dmu_reco_initial_p_theta,
+                         "dmu_reco_initial_p_theta[ndmu]/F");
+        tree_out->Branch("dmu_reco_initial_p_phi", dmu_reco_initial_p_phi,
+                         "dmu_reco_initial_p_phi[ndmu]/F");
+        tree_out->Branch("dmu_reco_final_p_r", dmu_reco_final_p_r, "dmu_reco_final_p_r[ndmu]/F");
+        tree_out->Branch("dmu_reco_final_p_theta", dmu_reco_final_p_theta,
+                         "dmu_reco_final_p_theta[ndmu]/F");
+        tree_out->Branch("dmu_reco_final_p_phi", dmu_reco_final_p_phi,
+                         "dmu_reco_final_p_phi[ndmu]/F");
+
+        tree_out->Branch("dmu_gen_initial_r", dmu_gen_initial_r, "dmu_gen_initial_r[ndmu]/F");
+        tree_out->Branch("dmu_gen_initial_theta", dmu_gen_initial_theta,
+                         "dmu_gen_initial_theta[ndmu]/F");
+        tree_out->Branch("dmu_gen_initial_phi", dmu_gen_initial_phi, "dmu_gen_initial_phi[ndmu]/F");
+        tree_out->Branch("dmu_gen_final_r", dmu_gen_final_r, "dmu_gen_final_r[ndmu]/F");
+        tree_out->Branch("dmu_gen_final_theta", dmu_gen_final_theta, "dmu_gen_final_theta[ndmu]/F");
+        tree_out->Branch("dmu_gen_final_phi", dmu_gen_final_phi, "dmu_gen_final_phi[ndmu]/F");
+        tree_out->Branch("dmu_gen_initial_p_r", dmu_gen_initial_p_r, "dmu_gen_initial_p_r[ndmu]/F");
+        tree_out->Branch("dmu_gen_initial_p_theta", dmu_gen_initial_p_theta,
+                         "dmu_gen_initial_p_theta[ndmu]/F");
+        tree_out->Branch("dmu_gen_initial_p_phi", dmu_gen_initial_p_phi,
+                         "dmu_gen_initial_p_phi[ndmu]/F");
+        tree_out->Branch("dmu_gen_final_p_r", dmu_gen_final_p_r, "dmu_gen_final_p_r[ndmu]/F");
+        tree_out->Branch("dmu_gen_final_p_theta", dmu_gen_final_p_theta,
+                         "dmu_gen_final_p_theta[ndmu]/F");
+        tree_out->Branch("dmu_gen_final_p_phi", dmu_gen_final_p_phi, "dmu_gen_final_p_phi[ndmu]/F");
+        tree_out->Branch("dmu_propagationSurface", dmu_propagationSurface,
+                         "dmu_propagationSurface[ndmu]/I");
+        tree_out->Branch("dmu_chi2", dmu_chi2, "dmu_chi2[ndmu]/F");
+        tree_out->Branch("dmu_chi2_x", dmu_chi2_x, "dmu_chi2_x[ndmu]/F");
+        tree_out->Branch("dmu_chi2_y", dmu_chi2_y, "dmu_chi2_y[ndmu]/F");
+        tree_out->Branch("dmu_chi2_z", dmu_chi2_z, "dmu_chi2_z[ndmu]/F");
+        tree_out->Branch("dmu_chi2_px", dmu_chi2_px, "dmu_chi2_px[ndmu]/F");
+        tree_out->Branch("dmu_chi2_py", dmu_chi2_py, "dmu_chi2_py[ndmu]/F");
+        tree_out->Branch("dmu_chi2_pz", dmu_chi2_pz, "dmu_chi2_pz[ndmu]/F");
     }
     // Trigger branches
     for (unsigned int ihlt = 0; ihlt < HLTPaths_.size(); ihlt++) {
@@ -422,7 +361,6 @@ void ntuplizer_test::beginJob() {
 // endJob (After event loop has finished)
 void ntuplizer_test::endJob() {
     std::cout << "End Job" << std::endl;
-    chi2file.close();
     file_out->cd();
     tree_out->Write();
     counts->Write();
@@ -443,11 +381,15 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
     iEvent.getByToken(dmuToken, dmuons);
 
     const MagneticField* magField = nullptr;
-    const Propagator* propagator = nullptr;
+    const Propagator* propagatorAlong = nullptr;
+    const Propagator* propagatorOpposite = nullptr;
     if (isMCSignal) {
         iEvent.getByToken(prunedGenToken, prunedGen);
-        propagator = &iSetup.getData(thePropToken);
-        if (!dynamic_cast<const SteppingHelixPropagator*>(propagator)) {
+        propagatorAlong = &iSetup.getData(thePropAlongToken);
+        propagatorOpposite = &iSetup.getData(thePropOppositeToken);
+
+        if (!dynamic_cast<const SteppingHelixPropagator*>(propagatorAlong) ||
+            !dynamic_cast<const SteppingHelixPropagator*>(propagatorOpposite)) {
             edm::LogWarning("BadConfig") << "@SUB=CosmicGenFilterHelix::getPropagator"
                                          << "Not a SteppingHelixPropagator!";
         }
@@ -475,7 +417,7 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
             const reco::GenParticle& p(prunedGen->at(i));
             if (abs(p.pdgId()) == 13 && p.status() == 1) {  // Check if the particle is a muon
                 // Check if the muon has a mother with pdgId 1023
-                if (hasMotherWithPdgId_test(&p, 1023)) {
+                if (hasMotherWithPdgId(&p, 1023)) {
                     goodGenMuons_indices[n_goodGenMuons] = i;
                     n_goodGenMuons++;
                 }
@@ -488,8 +430,11 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
     // displacedMuons Collection
     // ----------------------------------
     ndmu = 0;
-    std::vector<Float_t> deltaR_residuals;
-    std::vector<Float_t> residuals;
+    std::map<std::pair<int, int>, std::pair<GlobalTrajectoryParameters, GlobalTrajectoryParameters>>
+        propagatedTrajectories;
+    TMatrixF chi2Matrix = TMatrixF(dmuons->size(), n_goodGenMuons);
+    std::map<std::pair<int, int>, AlgebraicVector6> chi2_vectors;
+    std::map<std::pair<int, int>, kPropagationSurface> matchResults;
     for (unsigned int i = 0; i < dmuons->size(); i++) {
         // std::cout << " - - ndmu: " << ndmu << std::endl;
         const reco::Muon& dmuon(dmuons->at(i));
@@ -504,6 +449,15 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
         dmu_numberOfMatchedRPCLayers[ndmu] = dmuon.numberOfMatchedRPCLayers();
         dmu_t0_InOut[ndmu] = dmuon.time().timeAtIpInOut;
         dmu_t0_OutIn[ndmu] = dmuon.time().timeAtIpOutIn;
+        dmu_hasGenMatch[ndmu] = false;
+        dmu_propagationSurface[ndmu] = -1;
+        dmu_chi2[ndmu] = 9999;
+        dmu_chi2_x[ndmu] = 9999;
+        dmu_chi2_y[ndmu] = 9999;
+        dmu_chi2_z[ndmu] = 9999;
+        dmu_chi2_px[ndmu] = 9999;
+        dmu_chi2_py[ndmu] = 9999;
+        dmu_chi2_pz[ndmu] = 9999;
 
         // Access the DSA track associated to the displacedMuon
         // std::cout << "isStandAloneMuon: " << dmuon.isStandAloneMuon() << std::endl;
@@ -528,21 +482,42 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
                 outerTrack->hitPattern().dtStationsWithValidHits();
             dmu_dsa_cscStationsWithValidHits[ndmu] =
                 outerTrack->hitPattern().cscStationsWithValidHits();
-            // if (isAOD) {
-            //     // Number of DT+CSC segments
-            //     unsigned int nsegments = 0;
-            //     for (trackingRecHit_iterator hit = outerTrack->recHitsBegin();
-            //          hit != outerTrack->recHitsEnd(); ++hit) {
-            //         if (!(*hit)->isValid()) continue;
-            //         DetId id = (*hit)->geographicalId();
-            //         if (id.det() != DetId::Muon) continue;
-            //         if (id.subdetId() == MuonSubdetId::DT || id.subdetId() == MuonSubdetId::CSC)
-            //         {
-            //             nsegments++;
-            //         }
-            //     }
-            //     dmu_dsa_nsegments[ndmu] = nsegments;
-            // }
+            TVector3 dsa_vertex = TVector3();
+            TVector3 dsa_momentum = TVector3();
+            dsa_vertex.SetXYZ(outerTrack->vx(), outerTrack->vy(), outerTrack->vz());
+            dsa_momentum.SetXYZ(outerTrack->px(), outerTrack->py(), outerTrack->pz());
+            // initial values for the gen matching
+            dmu_reco_initial_r[ndmu] = dsa_vertex.Perp();
+            dmu_reco_initial_theta[ndmu] = dsa_vertex.Theta();
+            dmu_reco_initial_phi[ndmu] = dsa_vertex.Phi();
+            dmu_reco_initial_p_r[ndmu] = dsa_momentum.Perp();
+            dmu_reco_initial_p_theta[ndmu] = dsa_momentum.Theta();
+            dmu_reco_initial_p_phi[ndmu] = dsa_momentum.Phi();
+            dmu_reco_final_r[ndmu] = 9999;
+            dmu_reco_final_theta[ndmu] = 9999;
+            dmu_reco_final_phi[ndmu] = 9999;
+            dmu_reco_final_p_r[ndmu] = 9999;
+            dmu_reco_final_p_theta[ndmu] = 9999;
+            dmu_reco_final_p_phi[ndmu] = 9999;
+
+            dmu_gen_initial_r[ndmu] = 9999;
+            dmu_gen_initial_theta[ndmu] = 9999;
+            dmu_gen_initial_phi[ndmu] = 9999;
+            dmu_gen_initial_p_r[ndmu] = 9999;
+            dmu_gen_initial_p_theta[ndmu] = 9999;
+            dmu_gen_initial_p_phi[ndmu] = 9999;
+            dmu_gen_final_r[ndmu] = 9999;
+            dmu_gen_final_theta[ndmu] = 9999;
+            dmu_gen_final_phi[ndmu] = 9999;
+            dmu_gen_final_p_r[ndmu] = 9999;
+            dmu_gen_final_p_theta[ndmu] = 9999;
+            dmu_gen_final_p_phi[ndmu] = 9999;
+
+            for (int j = 0; j < n_goodGenMuons; j++) {
+                chi2Matrix(i, j) = 9999;
+                matchResults[{i, j}] = NONE;
+                chi2_vectors[{i, j}] = AlgebraicVector6(9999, 9999, 9999, 9999, 9999, 9999);
+            }
         } else {
             dmu_dsa_pt[ndmu] = 0;
             dmu_dsa_eta[ndmu] = 0;
@@ -562,24 +537,51 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
             dmu_dsa_dtStationsWithValidHits[ndmu] = 0;
             dmu_dsa_cscStationsWithValidHits[ndmu] = 0;
             dmu_dsa_nsegments[ndmu] = 0;
+
+            dmu_reco_initial_r[ndmu] = 9999;
+            dmu_reco_initial_theta[ndmu] = 9999;
+            dmu_reco_initial_phi[ndmu] = 9999;
+            dmu_reco_initial_p_r[ndmu] = 9999;
+            dmu_reco_initial_p_theta[ndmu] = 9999;
+            dmu_reco_initial_p_phi[ndmu] = 9999;
+            dmu_reco_final_r[ndmu] = 9999;
+            dmu_reco_final_theta[ndmu] = 9999;
+            dmu_reco_final_phi[ndmu] = 9999;
+            dmu_reco_final_p_r[ndmu] = 9999;
+            dmu_reco_final_p_theta[ndmu] = 9999;
+            dmu_reco_final_p_phi[ndmu] = 9999;
+
+            dmu_gen_initial_r[ndmu] = 9999;
+            dmu_gen_initial_theta[ndmu] = 9999;
+            dmu_gen_initial_phi[ndmu] = 9999;
+            dmu_gen_initial_p_r[ndmu] = 9999;
+            dmu_gen_initial_p_theta[ndmu] = 9999;
+            dmu_gen_initial_p_phi[ndmu] = 9999;
+            dmu_gen_final_r[ndmu] = 9999;
+            dmu_gen_final_theta[ndmu] = 9999;
+            dmu_gen_final_phi[ndmu] = 9999;
+            dmu_gen_final_p_r[ndmu] = 9999;
+            dmu_gen_final_p_theta[ndmu] = 9999;
+            dmu_gen_final_p_phi[ndmu] = 9999;
+
+            for (int j = 0; j < n_goodGenMuons; j++) {
+                chi2Matrix(i, j) = 9999;
+                matchResults[{i, j}] = NONE;
+                chi2_vectors[{i, j}] = AlgebraicVector6(9999, 9999, 9999, 9999, 9999, 9999);
+            }
+            continue;
         }
         // ----------------------------------
         // Gen Matching part
         // ----------------------------------
         if (isMCSignal) {
-            dmu_hasGenMatch[ndmu] = false;
-            dmu_genMatchedIndex[ndmu] = -1;
-
             const reco::Track* candidateTrack = nullptr;
             if (dmuon.isGlobalMuon()) {
-                continue;
+                candidateTrack = (dmuon.combinedMuon()).get();
             } else if (dmuon.isStandAloneMuon()) {
-                if (dmu_dsa_dxy[ndmu] > 0.3) {
-                    continue;
-                }
                 candidateTrack = (dmuon.standAloneMuon()).get();
             } else if (dmuon.isTrackerMuon()) {
-                continue;
+                candidateTrack = (dmuon.innerTrack()).get();
             }
 
             TVector3 candidate_vertex = TVector3();
@@ -591,18 +593,23 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
 
             for (Int_t j = 0; j < n_goodGenMuons; j++) {
                 const reco::GenParticle& p(prunedGen->at(goodGenMuons_indices[j]));
-                TVector3 gen_vertex = TVector3();
-                gen_vertex.SetXYZ(p.vx(), p.vy(), p.vz());
-                std::pair<GlobalTrajectoryParameters, bool> genMatchResult =
-                    myGenMatching_test(p, candidateTrack, magField, propagator);
-                GlobalPoint residualPoint = genMatchResult.first.position();
-                GlobalVector residualMomentum = genMatchResult.first.momentum();
-                bool matchGood = genMatchResult.second;
-                // Residual is the magnitude of the point summed to momentum
-                Float_t residual = matchGood ? residualPoint.mag() + residualMomentum.mag() : -1;
-                Float_t deltaR_residual = reco::deltaR(*candidateTrack, p);
-                deltaR_residuals.push_back(deltaR_residual);
-                residuals.push_back(residual);
+                GlobalTrajectoryParameters genFinalParams, recoFinalParams;
+                CartesianTrajectoryError recoError;
+                kPropagationSurface propagationSurface = matchGenParticleToRecoTrack(
+                    p, candidateTrack, magField, propagatorAlong, propagatorOpposite,
+                    genFinalParams, recoFinalParams, recoError);
+
+                propagatedTrajectories[{i, j}] = {genFinalParams, recoFinalParams};
+                matchResults[{i, j}] = propagationSurface;
+                AlgebraicVector6 chi2_vector =
+                    calculateChi2Vector(genFinalParams, recoFinalParams, recoError);
+                chi2_vectors[{i, j}] = chi2_vector;
+                // chi2 is the sum of all values of chi2_vector
+                Float_t chi2 = 0;
+                for (int k = 0; k < 6; k++) {
+                    chi2 += chi2_vector[k];
+                }
+                chi2Matrix(i, j) = (propagationSurface > 0) ? chi2 : 9999;
             }
         }
         ndmu++;
@@ -625,38 +632,114 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
             triggerPass[ipath] = fired;
             ipath++;
         }
-
-        //-> Fill tree
-        tree_out->Fill();
     }
 
-    /// Check the residuals vectors
-    // Print each pair of values to the file
-    for (size_t i = 0; i < deltaR_residuals.size(); ++i) {
-        chi2file << deltaR_residuals[i] << ", " << residuals[i] << '\n';
+    // ----------------------------------
+    // Gen Matching continued
+    // ----------------------------------
+    TMatrixF boolMatrix = TMatrixF(200, 200);
+    markMinimalValues(chi2Matrix, boolMatrix);
+    // Loop over true entries of bool matrix and set them to zero
+    // if the corresponding chi2Matrix element is 9999
+    for (int i = 0; i < chi2Matrix.GetNrows(); i++) {
+        for (int j = 0; j < chi2Matrix.GetNcols(); j++) {
+            if (chi2Matrix(i, j) == 9999) {
+                boolMatrix(i, j) = 0;
+            }
+        }
     }
 
-    // Check that the index of the minimum residual is the same as the index of the minimum
-    // deltaR_residual
-    auto min_deltaR_it = std::min_element(deltaR_residuals.begin(), deltaR_residuals.end());
-    auto min_residual_it = std::min_element(residuals.begin(), residuals.end());
+    // Set dmu_hasGenMatch and dmu_genMatchedIndex
+    for (unsigned int i = 0; i < dmuons->size(); i++) {
+        for (Int_t j = 0; j < n_goodGenMuons; j++) {
+            if (boolMatrix(i, j) == 1.0) {
+                dmu_hasGenMatch[i] = true;
+                dmu_genMatchedIndex[i] = j;
+                dmu_chi2[i] = chi2Matrix(i, j);
+                dmu_chi2_x[i] = chi2_vectors[{i, j}][0];
+                dmu_chi2_y[i] = chi2_vectors[{i, j}][1];
+                dmu_chi2_z[i] = chi2_vectors[{i, j}][2];
+                dmu_chi2_px[i] = chi2_vectors[{i, j}][3];
+                dmu_chi2_py[i] = chi2_vectors[{i, j}][4];
+                dmu_chi2_pz[i] = chi2_vectors[{i, j}][5];
+            }
+        }
+    }
+    // Assign residuals
+    for (unsigned int i = 0; i < dmuons->size(); i++) {
+        int genMuonIndex = dmu_genMatchedIndex[i];
+        // Check arrays out of bounds
+        if (!(genMuonIndex >= 0 && genMuonIndex < n_goodGenMuons)) {
+            std::cout << "Are you sure you are using indices right? Attempt to access genMuonIndex "
+                      << genMuonIndex << " in array of size " << n_goodGenMuons << std::endl;
+            continue;
+        }
 
-    size_t min_deltaR_index = std::distance(deltaR_residuals.begin(), min_deltaR_it);
-    size_t min_residual_index = std::distance(residuals.begin(), min_residual_it);
+        // Propagated trajectories
+        GlobalTrajectoryParameters genFinalParams = propagatedTrajectories[{i, genMuonIndex}].first;
+        GlobalTrajectoryParameters recoFinalParams =
+            propagatedTrajectories[{i, genMuonIndex}].second;
+        kPropagationSurface propagationSurface = matchResults[{i, genMuonIndex}];
 
-    chi2file << "Min index match: " << (min_deltaR_index == min_residual_index) << '\n';
+        const reco::GenParticle& genPart(prunedGen->at(goodGenMuons_indices[genMuonIndex]));
+        GlobalPoint genInitialVertex =
+            GlobalPoint(genPart.vx() * 0.1, genPart.vy() * 0.1, genPart.vz() * 0.1);
+        GlobalVector genInitialMomentum = GlobalVector(genPart.px(), genPart.py(), genPart.pz());
 
-    // // Debugging: just check if this is reasonable
-    // if (matchedMuons.size() == 2 &&
-    //     matchedMuons[0]->charge() != matchedMuons[1]->charge()) {
-    //     TLorentzVector muon1, muon2;
-    //     muon1.SetPtEtaPhiM(matchedMuons[0]->pt(), matchedMuons[0]->eta(),
-    //                         matchedMuons[0]->phi(), 0.105);
-    //     muon2.SetPtEtaPhiM(matchedMuons[1]->pt(), matchedMuons[1]->eta(),
-    //                         matchedMuons[1]->phi(), 0.105);
-    //     double invariantMass = (muon1 + muon2).M();
-    //     std::cout << "Invariant mass of the two gen-matched muons: " << invariantMass
-    //                 << std::endl;
-    // }
+        GlobalPoint recoFinalVertex = recoFinalParams.position();
+        GlobalVector recoFinalMomentum = recoFinalParams.momentum();
+        GlobalPoint genFinalVertex = genFinalParams.position();
+        GlobalVector genFinalMomentum = genFinalParams.momentum();
+
+        if (propagationSurface <= 0) {
+            dmu_reco_final_r[i] = 9999;
+            dmu_reco_final_theta[i] = 9999;
+            dmu_reco_final_phi[i] = 9999;
+            dmu_reco_final_p_r[i] = 9999;
+            dmu_reco_final_p_theta[i] = 9999;
+            dmu_reco_final_p_phi[i] = 9999;
+
+            dmu_gen_initial_r[i] = 9999;
+            dmu_gen_initial_theta[i] = 9999;
+            dmu_gen_initial_phi[i] = 9999;
+            dmu_gen_initial_p_r[i] = 9999;
+            dmu_gen_initial_p_theta[i] = 9999;
+            dmu_gen_initial_p_phi[i] = 9999;
+
+            dmu_gen_final_r[i] = 9999;
+            dmu_gen_final_theta[i] = 9999;
+            dmu_gen_final_phi[i] = 9999;
+            dmu_gen_final_p_r[i] = 9999;
+            dmu_gen_final_p_theta[i] = 9999;
+            dmu_gen_final_p_phi[i] = 9999;
+
+            dmu_propagationSurface[i] = propagationSurface;
+        } else {
+            dmu_reco_final_r[i] = recoFinalVertex.perp();
+            dmu_reco_final_theta[i] = recoFinalVertex.theta();
+            dmu_reco_final_phi[i] = recoFinalVertex.phi();
+            dmu_reco_final_p_r[i] = recoFinalMomentum.perp();
+            dmu_reco_final_p_theta[i] = recoFinalMomentum.theta();
+            dmu_reco_final_p_phi[i] = recoFinalMomentum.phi();
+
+            dmu_gen_initial_r[i] = genInitialVertex.perp();
+            dmu_gen_initial_theta[i] = genInitialVertex.theta();
+            dmu_gen_initial_phi[i] = genInitialVertex.phi();
+            dmu_gen_initial_p_r[i] = genInitialMomentum.perp();
+            dmu_gen_initial_p_theta[i] = genInitialMomentum.theta();
+            dmu_gen_initial_p_phi[i] = genInitialMomentum.phi();
+
+            dmu_gen_final_r[i] = genFinalVertex.perp();
+            dmu_gen_final_theta[i] = genFinalVertex.theta();
+            dmu_gen_final_phi[i] = genFinalVertex.phi();
+            dmu_gen_final_p_r[i] = genFinalMomentum.perp();
+            dmu_gen_final_p_theta[i] = genFinalMomentum.theta();
+            dmu_gen_final_p_phi[i] = genFinalMomentum.phi();
+
+            dmu_propagationSurface[i] = propagationSurface;
+        }
+    }
+    //-> Fill tree
+    tree_out->Fill();
 }
 DEFINE_FWK_MODULE(ntuplizer_test);
