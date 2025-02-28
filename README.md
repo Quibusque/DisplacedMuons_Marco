@@ -25,6 +25,10 @@ Example:
 ```bash
 cmsRun MC_MiniAOD_runNtuplizer_cfg_test.py -input_dir HTo2ZdTo2mu2x_MZd-40_Epsilon-5e-09 -out_file test.root &> myLog.log
 ```
+Options for `input_dir` are:
+- `HTo2ZdTo2mu2x_MZd-40_Epsilon-5e-09`
+- `HTo2ZdTo2mu2x_MZd-40_Epsilon-8e-08`
+- `HTo2ZdTo2mu2x_MZd-40_Epsilon-2e-08`
 
 In the file `MC_MiniAOD_runNtuplizer_cfg_test.py`, you can edit the variable `nEvents` to run over a different number of events. Use `-1` to run over all events.
 
