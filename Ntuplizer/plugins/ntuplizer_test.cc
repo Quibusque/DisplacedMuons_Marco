@@ -428,7 +428,7 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
 
                     if (genSurface != PropagationConstants::NONE) {
                         genFinalParams = GlobalTrajectoryParameters(
-                            genTsosPath.first.globalPosition(), genTsosPath.first.globalMomentum(),
+                            genFinalParams.position(), genFinalParams.momentum(),
                             genCharge, magField);
                     }
                     genPropagationResults[i] = std::make_pair(genSurface, genFinalParams);
@@ -527,7 +527,7 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
 
             for (int j = 0; j < n_goodGenMuons; j++) {
                 chi2Matrix(i, j) = 9999;
-                matchResults[{i, j}] = NONE;
+                matchResults[{i, j}] = GenMatchResults::NONE;
                 chi2_vectors[{i, j}] = AlgebraicVector6(9999, 9999, 9999, 9999, 9999, 9999);
             }
         } else {
@@ -578,7 +578,7 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
 
             for (int j = 0; j < n_goodGenMuons; j++) {
                 chi2Matrix(i, j) = 9999;
-                matchResults[{i, j}] = NONE;
+                matchResults[{i, j}] = GenMatchResults::NONE;
                 chi2_vectors[{i, j}] = AlgebraicVector6(9999, 9999, 9999, 9999, 9999, 9999);
             }
             continue;
@@ -724,7 +724,7 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
                 dmu_gen_final_p_theta[i] = 9999;
                 dmu_gen_final_p_phi[i] = 9999;
 
-                dmu_propagationSurface[i] = matchResult;
+                dmu_propagationSurface[i] = static_cast<Int_t>(matchResult);
             } else {
                 dmu_reco_final_r[i] = recoFinalVertex.perp();
                 dmu_reco_final_theta[i] = recoFinalVertex.theta();
@@ -747,7 +747,7 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
                 dmu_gen_final_p_theta[i] = genFinalMomentum.theta();
                 dmu_gen_final_p_phi[i] = genFinalMomentum.phi();
 
-                dmu_propagationSurface[i] = matchResult;
+                dmu_propagationSurface[i] = static_cast<Int_t>(matchResult);
             }
         }
         //-> Fill tree

@@ -13,7 +13,13 @@ struct PropagationSurface {
     Float_t radius;
     Float_t maxZ;
     Float_t minZ;
-    GenMatchResults genMatchResult; 
+    GenMatchResults genMatchResult;
+
+    bool operator==(const PropagationSurface& other) const {
+        return radius == other.radius && maxZ == other.maxZ && minZ == other.minZ &&
+               genMatchResult == other.genMatchResult;
+    }
+    bool operator!=(const PropagationSurface& other) const { return !(*this == other); }
 };
 
 namespace PropagationConstants {

@@ -20,14 +20,6 @@ typedef math::Error<5>::type CovarianceMatrix;
 
 bool hasMotherWithPdgId(const reco::Candidate* particle, int pdgId);
 
-enum class GenMatchResults {
-    DELTA_R_FAIL = -2,
-    NONE = -1,
-    CYLINDER = 1,
-    POS_ENDCAP = 2,
-    NEG_ENDCAP = 3
-};
-
 /**
  * @brief Matches a reconstructed track to a generated surface.
  * 
