@@ -363,6 +363,7 @@ void ntuplizer_test::fillDescriptions(edm::ConfigurationDescriptions& descriptio
 
 // Analyze (per event)
 void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup) {
+    std::cout<< "ntuplizer_test::analyze!" << std::endl;
     iEvent.getByToken(dglToken, dgls);
     iEvent.getByToken(dsaToken, dsas);
     iEvent.getByToken(dmuToken, dmuons);
@@ -396,16 +397,18 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
     // ----------------------------------
     // genParticles Collection
     // ----------------------------------
+    std::cout<< "ntuplizer_test::genParticles Collection!" << std::endl;
     Int_t nprugenmu = 0;
     int goodGenMuons_indices[10] = {-1};
     int n_goodGenMuons = 0;
     std::pair<PropagationSurface, GlobalTrajectoryParameters> genPropagationResults[10];
     if (isMCSignal) {
         for (unsigned int i = 0; i < prunedGen->size(); i++) {
-            const reco::GenParticle& p(prunedGen->at(i));
-            if (abs(p.pdgId()) == 13 && p.status() == 1) {  // Check if the particle is a muon
+            const reco::GenParticle& genParticle(prunedGen->at(i));
+            if (abs(genParticle.pdgId()) == 13 &&
+                genParticle.status() == 1) {  // Check if the particle is a muon
                 // Check if the muon has a mother with pdgId 1023
-                if (hasMotherWithPdgId(&p, 1023)) {
+                if (hasMotherWithPdgId(&genParticle, 1023)) {
                     goodGenMuons_indices[n_goodGenMuons] = i;
                     n_goodGenMuons++;
 
@@ -427,9 +430,9 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
                         genFTS, genFinalParams, magField, propagatorAlong, propagatorOpposite);
 
                     if (genSurface != PropagationConstants::NONE) {
-                        genFinalParams = GlobalTrajectoryParameters(
-                            genFinalParams.position(), genFinalParams.momentum(),
-                            genCharge, magField);
+                        genFinalParams = GlobalTrajectoryParameters(genFinalParams.position(),
+                                                                    genFinalParams.momentum(),
+                                                                    genCharge, magField);
                     }
                     genPropagationResults[i] = std::make_pair(genSurface, genFinalParams);
                 }
@@ -441,6 +444,7 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
     // ----------------------------------
     // displacedMuons Collection
     // ----------------------------------
+    std::cout<< "ntuplizer_test::displacedMuons Collection!" << std::endl;
     ndmu = 0;
     std::map<std::pair<int, int>, std::pair<GlobalTrajectoryParameters, GlobalTrajectoryParameters>>
         propagatedTrajectories;
@@ -586,6 +590,7 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
         // ----------------------------------
         // Gen Matching part
         // ----------------------------------
+        std::cout<< "ntuplizer_test::Gen Matching part!" << std::endl;
         if (isMCSignal) {
             const reco::Track* candidateTrack = nullptr;
             if (dmuon.isGlobalMuon()) {
@@ -645,6 +650,8 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
         // ----------------------------------
         // Gen Matching continued
         // ----------------------------------
+        std::cout<< "ntuplizer_test::Gen Matching continued!" << std::endl;
+        
         TMatrixF boolMatrix = TMatrixF(200, 200);
         markMinimalValues(chi2Matrix, boolMatrix);
         // Loop over true entries of bool matrix and set them to zero
@@ -674,6 +681,7 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
             }
         }
         // Assign residuals
+        std::cout<< "ntuplizer_test::Assign residuals!" << std::endl;
         for (unsigned int i = 0; i < dmuons->size(); i++) {
             int genMuonIndex = dmu_genMatchedIndex[i];
             // Check arrays out of bounds
@@ -750,7 +758,10 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
                 dmu_propagationSurface[i] = static_cast<Int_t>(matchResult);
             }
         }
-        //-> Fill tree
-        tree_out->Fill();
     }
-    DEFINE_FWK_MODULE(ntuplizer_test);
+    std::cout<< "ntuplizer_test::About to fill trees!" << std::endl;
+    //-> Fill tree
+    tree_out->Fill();
+    std::cout<< "ntuplizer_test::filled trees!" << std::endl;
+}
+DEFINE_FWK_MODULE(ntuplizer_test);
