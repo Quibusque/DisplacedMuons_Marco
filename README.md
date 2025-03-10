@@ -1,48 +1,34 @@
 # Displaced Muons Framework
 
-Taken from https://github.com/24LopezR/DisplacedMuons-FrameWork
+Taken from [DisplacedMuons-FrameWork](https://github.com/24LopezR/DisplacedMuons-FrameWork)
 
-## Instructions for installing and producing Cosmic Data/MC plots
+## Instructions for Installing and Producing Cosmic Data/MC Plots
+
 ### Installing
-I recommend using `CMSSW_13_2_0`, but any later release should also work.
-For installing the code, follow these instructions:
 
-    cmsrel CMSSW_13_2_0
-    cd CMSSW_13_2_0/src
-    cmsenv
-    git clone git@github.com:24LopezR/DisplacedMuons-FrameWork.git
-    scram b -j8
-Note that for computing the efficiencies and producing the plots we will use only the "Ntuplizer" package. The other two ("Analyzer" and "MiniAOD_prod") can be ignored / deleted.
-### Producing Ntuples
-To produce the Ntuples, one can start from AOD or MiniAOD. Depending if you are running on AOD/MiniAOD and Data/MC, you have to change the configuration of the ntuplizer. The four combinations are in `DisplacedMuons-FrameWork/Ntuplizer/python`
-Then to run the ntuplizer you have to `cmsRun` any of the scripts you find in `DisplacedMuons-FrameWork/Ntuplizer/test` .
-An example is summarized in these instructions:
+I recommend using `CMSSW_13_2_0`, but any later release should also work. For installing the code, follow these instructions:
 
-    cd DisplacedMuons-FrameWork/Ntuplizer/test
-    
-    # Check listOfFiles in 'CosmicsMC_MiniAOD_runNtuplizer_cfg.py':
-    #     listOfFiles = ['']
-    # Check configuration in 'CosmicsMC_MiniAOD_runNtuplizer_cfg.py':
-    #     process.load("DisplacedMuons-FrameWork.Ntuplizer.CosmicsMC_ntuples_MiniAOD_cfi")
-    
-    cmsRun CosmicsMC_MiniAOD_runNtuplizer_cfg.py &> log_CosmicsMC_MiniAOD.log
-### Plotting efficiencies
-For all the plots I use the script `plot_efficiencies.py`.
-Usage:
+```bash
+cmsrel CMSSW_13_2_0
+cd CMSSW_13_2_0/src
+cmsenv
+git clone git@github.com:24LopezR/DisplacedMuons-FrameWork.git
+scram b -j8
+```
 
-        usage: plot_efficiencies.py [-h]
-                                [--var [{dmu_dsa_dxy,dmu_dsa_pt,dmu_dsa_eta,dmu_dgl_dxy,dmu_dgl_dz} [{dmu_dsa_dxy,dmu_dsa_pt,dmu_dsa_eta,dmu_dgl_dxy,dmu_dgl_dz} ...]]]
-                                [--mcfile MCFILE] [--datafile DATAFILE]
-    
-    optional arguments:
-      -h, --help            show this help message and exit
-      --var [{dmu_dsa_dxy,dmu_dsa_pt,dmu_dsa_eta,dmu_dgl_dxy,dmu_dgl_dz} [{dmu_dsa_dxy,dmu_dsa_pt,dmu_dsa_eta,dmu_dgl_dxy,dmu_dgl_dz} ...]]
-                            Variable(s) to plot
-      --mcfile MCFILE       MC Ntuple file
-      --datafile DATAFILE   Data Ntuple file
-The options I used are:
+### Gen matching - How I Run
 
-    python3 plot_efficiencies.py --var dmu_dsa_dxy
-    python3 plot_efficiencies.py --var dmu_dsa_eta
-    python3 plot_efficiencies.py --var dmu_dsa_pt
-    python3 plot_efficiencies.py --var dmu_dgl_dxy dmu_dgl_dz
+At the moment, I am focusing on running only `ntuplizer_test` which considers only DSA muons for MC signals of displaced muons (ntuplizer runs also for the cosmic rays).
+
+Example:
+
+```bash
+cmsRun MC_MiniAOD_runNtuplizer_cfg_test.py -input_dir HTo2ZdTo2mu2x_MZd-40_Epsilon-5e-09 -out_file test.root &> myLog.log
+```
+Options for `input_dir` are:
+- `HTo2ZdTo2mu2x_MZd-40_Epsilon-5e-09`
+- `HTo2ZdTo2mu2x_MZd-40_Epsilon-8e-08`
+- `HTo2ZdTo2mu2x_MZd-40_Epsilon-2e-08`
+
+In the file `MC_MiniAOD_runNtuplizer_cfg_test.py`, you can edit the variable `nEvents` to run over a different number of events. Use `-1` to run over all events.
+
