@@ -1,3 +1,5 @@
+#include "propagate_utilities.h"
+
 #include <algorithm>
 #include <fstream>
 #include <iostream>
@@ -47,18 +49,7 @@
 #include "TrackingTools/TrajectoryParametrization/interface/GlobalTrajectoryParameters.h"
 #include "TrackingTools/TrajectoryState/interface/FreeTrajectoryState.h"
 #include "TrackingTools/TrajectoryState/interface/TrajectoryStateOnSurface.h"
-
 typedef std::pair<TrajectoryStateOnSurface, double> TsosPath;
-
-enum kPropagationSurface {
-    RECO_OUTSIDE_CMS = -4,
-    GEN_OUTSIDE_CMS = -3,
-    OUTSIDE_DELTAR = -2,
-    NONE = -1,
-    CYLINDER = 1,
-    MAX_Z = 2,
-    MIN_Z = 3
-};
 
 void markMinimalValues(const TMatrixF& matrix, TMatrixF& boolMatrix) {
     unsigned int nrows = matrix.GetNrows();
@@ -194,7 +185,7 @@ bool propagateToCylinder(Float_t radius, Float_t minZ, Float_t maxZ, const FreeT
 
 bool propagateToZPlane(Float_t maxRadius, Float_t planeZ, const FreeTrajectoryState& fts,
                        const Propagator* propagatorAlong, const Propagator* propagatorOpposite,
-                       TsosPath& tsosPath, bool log = false) {
+                       TsosPath& tsosPath) {
     const Surface::RotationType dummyRot;
     Plane::PlanePointer theTargetPlane =
         Plane::build(Surface::PositionType(0., 0., planeZ), dummyRot);
@@ -219,99 +210,94 @@ bool propagateToZPlane(Float_t maxRadius, Float_t planeZ, const FreeTrajectorySt
     return withinMaxRadius;
 }
 
-kPropagationSurface propagateToCommonSurface(FreeTrajectoryState genFTS,
-                                             FreeTrajectoryState recoFTS, TsosPath& genTsosPath,
-                                             TsosPath& recoTsosPath, const MagneticField* magField,
-                                             const Propagator* propagatorAlong,
-                                             const Propagator* propagatorOpposite) {
-    Float_t cylinderRadius = 420.0;
-    Float_t maxRadius = 700.0;
-    Float_t minZ = -700.0;
-    Float_t maxZ = 700.0;
+PropagationSurface findAndPropagateToOptimalSurface(FreeTrajectoryState fts,
+                                                    GlobalTrajectoryParameters& finalParams,
+                                                    const MagneticField* magField,
+                                                    const Propagator* propagatorAlong,
+                                                    const Propagator* propagatorOpposite) {
+    TsosPath tsosPath = TsosPath();
+    PropagationSurface optimalSurface = PropagationConstants::NONE;
 
-    // Check if the gen and the reco are inside the propagation cylinder (this is not to stop the
-    // code but just a check)
-    if (genFTS.position().perp() > cylinderRadius || genFTS.position().z() > maxZ ||
-        genFTS.position().z() < minZ) {
-        std::cout << "Gen states is outside the propagation cylinder, with coordinates\n"
-                  << "R = " << genFTS.position().perp() << " and z = " << genFTS.position().z()
-                  << std::endl;
-    } else {
-        std::cout << "Gen states is inside the propagation cylinder" << std::endl;
-    }
-    if (recoFTS.position().perp() > cylinderRadius || recoFTS.position().z() > maxZ ||
-        recoFTS.position().z() < minZ) {
-        std::cout << "Reco states is outside the propagation cylinder, with coordinates\n"
-                  << "R = " << recoFTS.position().perp() << " and z = " << recoFTS.position().z()
-                  << std::endl;
-    } else {
-        std::cout << "Reco states is inside the propagation cylinder" << std::endl;
-    }
+    // First try with propagating to cylinder
+    Float_t radius = PropagationConstants::CYLINDER.radius;
+    Float_t minZ = PropagationConstants::CYLINDER.minZ;
+    Float_t maxZ = PropagationConstants::CYLINDER.maxZ;
 
-    //Sanity check - initial states within the max dimensions of CMS
-    Float_t maxCMSCylinderRadius = 800.0;
-    Float_t maxCMSZ = 1200.0;
-    Float_t minCMSZ = -1200.0;
-    if (genFTS.position().perp() > maxCMSCylinderRadius || genFTS.position().z() > maxCMSZ ||
-        genFTS.position().z() < minCMSZ) {
-        return GEN_OUTSIDE_CMS;
-    }
-    if (recoFTS.position().perp() > maxCMSCylinderRadius || recoFTS.position().z() > maxCMSZ ||
-        recoFTS.position().z() < minCMSZ) {
-        return RECO_OUTSIDE_CMS;
-    }
-
-    // First try with propagating both to the cylinder
-    bool genPropagationGood = propagateToCylinder(cylinderRadius, minZ, maxZ, genFTS,
-                                                  propagatorAlong, propagatorOpposite, genTsosPath);
-    bool recoPropagationGood = propagateToCylinder(
-        cylinderRadius, minZ, maxZ, recoFTS, propagatorAlong, propagatorOpposite, recoTsosPath);
-    if (genPropagationGood && recoPropagationGood) {
-        return CYLINDER;
-    }
-    genTsosPath = TsosPath();
-    recoTsosPath = TsosPath();
-
-    // If the cylinder propagation fails, try to propagate to the z planes
-    Float_t pZ = genFTS.momentum().z();
-    bool prioritizeMaxZ = pZ > 0;
-    if (prioritizeMaxZ) {
-        genPropagationGood = propagateToZPlane(maxRadius, maxZ, genFTS, propagatorAlong,
-                                               propagatorOpposite, genTsosPath);
-        recoPropagationGood = propagateToZPlane(maxRadius, maxZ, recoFTS, propagatorAlong,
-                                                propagatorOpposite, recoTsosPath);
-        if (genPropagationGood && recoPropagationGood) {
-            return MAX_Z;
-        }
-        genTsosPath = TsosPath();
-        recoTsosPath = TsosPath();
-        genPropagationGood = propagateToZPlane(maxRadius, minZ, genFTS, propagatorAlong,
-                                               propagatorOpposite, genTsosPath);
-        recoPropagationGood = propagateToZPlane(maxRadius, minZ, recoFTS, propagatorAlong,
-                                                propagatorOpposite, recoTsosPath);
-        if (genPropagationGood && recoPropagationGood) {
-            return MIN_Z;
-        }
-        genTsosPath = TsosPath();
-        recoTsosPath = TsosPath();
-    } else {
-        genPropagationGood = propagateToZPlane(maxRadius, minZ, genFTS, propagatorAlong,
-                                               propagatorOpposite, genTsosPath);
-        recoPropagationGood = propagateToZPlane(maxRadius, minZ, recoFTS, propagatorAlong,
-                                                propagatorOpposite, recoTsosPath);
-        if (genPropagationGood && recoPropagationGood) {
-            return MIN_Z;
-        }
-        genTsosPath = TsosPath();
-        recoTsosPath = TsosPath();
-        genPropagationGood = propagateToZPlane(maxRadius, maxZ, genFTS, propagatorAlong,
-                                               propagatorOpposite, genTsosPath);
-        recoPropagationGood = propagateToZPlane(maxRadius, maxZ, recoFTS, propagatorAlong,
-                                                propagatorOpposite, recoTsosPath);
-        if (genPropagationGood && recoPropagationGood) {
-            return MAX_Z;
+    bool genPropagationGood =
+        propagateToCylinder(radius, minZ, maxZ, fts, propagatorAlong, propagatorOpposite, tsosPath);
+    if (genPropagationGood) {
+        optimalSurface = PropagationConstants::CYLINDER;
+    } else {  // If the cylinder propagation fails, try to propagate to the z planes
+        tsosPath = TsosPath();
+        Float_t pZ = fts.momentum().z();
+        bool prioritizeMaxZ = pZ > 0;
+        if (prioritizeMaxZ) {
+            Float_t maxRadius = PropagationConstants::POS_ENDCAP.radius;
+            Float_t maxZ = PropagationConstants::POS_ENDCAP.maxZ;
+            genPropagationGood = propagateToZPlane(maxRadius, maxZ, fts, propagatorAlong,
+                                                   propagatorOpposite, tsosPath);
+            if (genPropagationGood) {
+                optimalSurface = PropagationConstants::POS_ENDCAP;
+            } else {
+                tsosPath = TsosPath();
+                maxRadius = PropagationConstants::NEG_ENDCAP.radius;
+                Float_t minZ = PropagationConstants::NEG_ENDCAP.minZ;
+                genPropagationGood = propagateToZPlane(maxRadius, minZ, fts, propagatorAlong,
+                                                       propagatorOpposite, tsosPath);
+                if (genPropagationGood) {
+                    optimalSurface = PropagationConstants::NEG_ENDCAP;
+                }
+            }
+        } else {
+            Float_t maxRadius = PropagationConstants::NEG_ENDCAP.radius;
+            Float_t minZ = PropagationConstants::NEG_ENDCAP.minZ;
+            genPropagationGood = propagateToZPlane(maxRadius, minZ, fts, propagatorAlong,
+                                                   propagatorOpposite, tsosPath);
+            if (genPropagationGood) {
+                optimalSurface = PropagationConstants::NEG_ENDCAP;
+            } else {
+                tsosPath = TsosPath();
+                Float_t maxRadius = PropagationConstants::POS_ENDCAP.radius;
+                Float_t maxZ = PropagationConstants::POS_ENDCAP.maxZ;
+                genPropagationGood = propagateToZPlane(maxRadius, maxZ, fts, propagatorAlong,
+                                                       propagatorOpposite, tsosPath);
+                if (genPropagationGood) {
+                    optimalSurface = PropagationConstants::POS_ENDCAP;
+                }
+            }
         }
     }
 
-    return NONE;
+    if (genPropagationGood) {
+        finalParams =
+            GlobalTrajectoryParameters(tsosPath.first.globalPosition(),
+                                       tsosPath.first.globalMomentum(), fts.charge(), magField);
+    }
+
+    return optimalSurface;
+}
+
+// "Force" propagation to surface, use looser constraints for z while doing cylinder propagation
+// or looser constraints on radius while doing z plane propagation
+bool propagateToSurface(FreeTrajectoryState fts, TsosPath& tsosPath,
+                        const PropagationSurface propagationSurface, const MagneticField* magField,
+                        const Propagator* propagatorAlong, const Propagator* propagatorOpposite) {
+    if (propagationSurface == PropagationConstants::CYLINDER) {
+        Float_t radius = PropagationConstants::CYLINDER.radius;
+        Float_t minZ = PropagationConstants::MAX_CMS_Z;
+        Float_t maxZ = PropagationConstants::MIN_CMS_Z;
+        return propagateToCylinder(radius, minZ, maxZ, fts, propagatorAlong, propagatorOpposite,
+                                   tsosPath);
+    } else if (propagationSurface == PropagationConstants::POS_ENDCAP) {
+        Float_t maxRadius = PropagationConstants::MAX_CMS_CYLINDER_RADIUS;
+        Float_t maxZ = PropagationConstants::POS_ENDCAP.maxZ;
+        return propagateToZPlane(maxRadius, maxZ, fts, propagatorAlong, propagatorOpposite,
+                                 tsosPath);
+    } else if (propagationSurface == PropagationConstants::NEG_ENDCAP) {
+        Float_t maxRadius = PropagationConstants::MAX_CMS_CYLINDER_RADIUS;
+        Float_t minZ = PropagationConstants::NEG_ENDCAP.minZ;
+        return propagateToZPlane(maxRadius, minZ, fts, propagatorAlong, propagatorOpposite,
+                                 tsosPath);
+    }
+    return false;
 }
