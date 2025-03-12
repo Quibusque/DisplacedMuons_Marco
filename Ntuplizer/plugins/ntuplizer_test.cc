@@ -410,7 +410,6 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
                 // Check if the muon has a mother with pdgId 1023
                 if (hasMotherWithPdgId(&genParticle, 1023)) {
                     goodGenMuons_indices[n_goodGenMuons] = i;
-                    n_goodGenMuons++;
 
                     // ---------------------------------------------------------
                     // Propagate the gens to the surface for later gen matching
@@ -434,7 +433,8 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
                                                                     genFinalParams.momentum(),
                                                                     genCharge, magField);
                     }
-                    genPropagationResults[i] = std::make_pair(genSurface, genFinalParams);
+                    genPropagationResults[n_goodGenMuons] = std::make_pair(genSurface, genFinalParams);
+                    n_goodGenMuons++;
                 }
             }
             nprugenmu++;
