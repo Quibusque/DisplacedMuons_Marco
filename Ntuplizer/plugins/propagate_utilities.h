@@ -33,11 +33,12 @@ void markMinimalValues(const TMatrixF& matrix, TMatrixF& boolMatrix);
  * @param propagatorAlong
  * @param propagatorOpposite
  * @param tsosPath the final state (modified by the function)
+ * @param checkFinalZ if true, the final state z must be less than maxZ
  * @return true if the propagation was successful, false otherwise
  */
 bool propagateToCylinder(Float_t radius, Float_t minZ, Float_t maxZ, const FreeTrajectoryState& fts,
                          const Propagator* propagatorAlong, const Propagator* propagatorOpposite,
-                         TsosPath& tsosPath);
+                         TsosPath& tsosPath, bool checkFinalZ = true);
 /**
  * @brief Propagate the fts to the z plane defined by planeZ. Final state is in tsosPath.
  *
@@ -47,11 +48,12 @@ bool propagateToCylinder(Float_t radius, Float_t minZ, Float_t maxZ, const FreeT
  * @param propagatorAlong
  * @param propagatorOpposite
  * @param tsosPath the final state (modified by the function)
+ * @param checkFinalRadius if true, the final state r must be less than maxRadius
  * @return true if the propagation was successful, false otherwise
  */
 bool propagateToZPlane(Float_t maxRadius, Float_t planeZ, const FreeTrajectoryState& fts,
                        const Propagator* propagatorAlong, const Propagator* propagatorOpposite,
-                       TsosPath& tsosPath);
+                       TsosPath& tsosPath, bool checkFinalRadius = true);
 /**
  * @brief Propagate the fts to the optimal surface. Final state is in finalParams. Surface
  * is returned.
@@ -73,8 +75,8 @@ PropagationSurface findAndPropagateToOptimalSurface(FreeTrajectoryState fts,
 /**
  * @brief Propagate the fts to the surface. Final state is in tsosPath.
  * 
- * The propagation is "forced" i.e. looser constraints are applied to the final z while
- * propagating to barrel and looser constraints are applied to the final r while propagating
+ * The propagation is "forced" i.e. no constraints are applied to the final z while
+ * propagating to barrel and no constraints are applied to the final r while propagating
  * to endcap. This is to ensure that the propagation is successful to go to that surface even
  * in edge cases.
  * 

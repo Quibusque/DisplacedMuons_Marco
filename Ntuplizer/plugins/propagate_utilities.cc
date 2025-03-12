@@ -160,7 +160,7 @@ void markMinimalValues(const TMatrixF& matrix, TMatrixF& boolMatrix) {
 
 bool propagateToCylinder(Float_t radius, Float_t minZ, Float_t maxZ, const FreeTrajectoryState& fts,
                          const Propagator* propagatorAlong, const Propagator* propagatorOpposite,
-                         TsosPath& tsosPath) {
+                         TsosPath& tsosPath, bool checkFinalZ) {
     const Surface::RotationType dummyRot;
     Cylinder::CylinderPointer theTargetCylinder =
         Cylinder::build(Surface::PositionType(0., 0., 0.), dummyRot, radius);
@@ -177,15 +177,18 @@ bool propagateToCylinder(Float_t radius, Float_t minZ, Float_t maxZ, const FreeT
         return false;
     }
 
-    // Final propagated position counts only if it is within the z range
-    bool withinZRange =
-        tsosPath.first.globalPosition().z() >= minZ && tsosPath.first.globalPosition().z() <= maxZ;
-    return withinZRange;
+    if (checkFinalZ) {
+        bool withinZRange = tsosPath.first.globalPosition().z() >= minZ &&
+                            tsosPath.first.globalPosition().z() <= maxZ;
+        return withinZRange;
+    }
+
+    return true;
 }
 
 bool propagateToZPlane(Float_t maxRadius, Float_t planeZ, const FreeTrajectoryState& fts,
                        const Propagator* propagatorAlong, const Propagator* propagatorOpposite,
-                       TsosPath& tsosPath) {
+                       TsosPath& tsosPath, bool checkFinalRadius) {
     const Surface::RotationType dummyRot;
     Plane::PlanePointer theTargetPlane =
         Plane::build(Surface::PositionType(0., 0., planeZ), dummyRot);
@@ -204,10 +207,11 @@ bool propagateToZPlane(Float_t maxRadius, Float_t planeZ, const FreeTrajectorySt
     if (!tsosPath.first.isValid()) {
         return false;
     }
-
-    // Final propagated position counts only if within the max radius
-    bool withinMaxRadius = tsosPath.first.globalPosition().perp() <= maxRadius;
-    return withinMaxRadius;
+    if (checkFinalRadius) {
+        bool withinMaxRadius = tsosPath.first.globalPosition().perp() <= maxRadius;
+        return withinMaxRadius;
+    }
+    return true;
 }
 
 PropagationSurface findAndPropagateToOptimalSurface(FreeTrajectoryState fts,
@@ -277,27 +281,28 @@ PropagationSurface findAndPropagateToOptimalSurface(FreeTrajectoryState fts,
     return optimalSurface;
 }
 
-// "Force" propagation to surface, use looser constraints for z while doing cylinder propagation
-// or looser constraints on radius while doing z plane propagation
 bool propagateToSurface(FreeTrajectoryState fts, TsosPath& tsosPath,
                         const PropagationSurface propagationSurface, const MagneticField* magField,
                         const Propagator* propagatorAlong, const Propagator* propagatorOpposite) {
     if (propagationSurface == PropagationConstants::CYLINDER) {
         Float_t radius = PropagationConstants::CYLINDER.radius;
-        Float_t minZ = PropagationConstants::MAX_CMS_Z;
-        Float_t maxZ = PropagationConstants::MIN_CMS_Z;
+        Float_t minZ = PropagationConstants::CYLINDER.minZ;
+        Float_t maxZ = PropagationConstants::CYLINDER.maxZ;
+        bool checkZRange = false;
         return propagateToCylinder(radius, minZ, maxZ, fts, propagatorAlong, propagatorOpposite,
-                                   tsosPath);
+                                   tsosPath,checkZRange);
     } else if (propagationSurface == PropagationConstants::POS_ENDCAP) {
-        Float_t maxRadius = PropagationConstants::MAX_CMS_CYLINDER_RADIUS;
         Float_t maxZ = PropagationConstants::POS_ENDCAP.maxZ;
+        Float_t maxRadius = PropagationConstants::POS_ENDCAP.radius;
+        bool checkFinalRadius = false;
         return propagateToZPlane(maxRadius, maxZ, fts, propagatorAlong, propagatorOpposite,
-                                 tsosPath);
+                                 tsosPath, checkFinalRadius);
     } else if (propagationSurface == PropagationConstants::NEG_ENDCAP) {
-        Float_t maxRadius = PropagationConstants::MAX_CMS_CYLINDER_RADIUS;
         Float_t minZ = PropagationConstants::NEG_ENDCAP.minZ;
+        Float_t maxRadius = PropagationConstants::NEG_ENDCAP.radius;
+        bool checkFinalRadius = false;
         return propagateToZPlane(maxRadius, minZ, fts, propagatorAlong, propagatorOpposite,
-                                 tsosPath);
+                                 tsosPath, checkFinalRadius);
     }
     return false;
 }
