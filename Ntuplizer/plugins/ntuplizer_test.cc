@@ -603,7 +603,7 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
                 GlobalTrajectoryParameters recoFinalParams;
                 CartesianTrajectoryError recoError;
 
-                Float_t deltaR_threshold = 0.5;
+                Float_t deltaR_threshold = 1000;
 
                 GenMatchResults matchResult = matchRecoTrackToGenSurface(
                     genSurface, candidateTrack, magField, propagatorAlong, propagatorOpposite,
@@ -618,6 +618,8 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
                 Float_t chi2 = 0;
                 for (int k = 0; k < 6; k++) {
                     chi2 += chi2_vector[k];
+                    //fill chi2_vectors
+                    chi2_vectors[{i, j}][k] = chi2_vector[k];
                 }
                 chi2Matrix(i, j) = (goodMatch) ? chi2 : 9999;
             }
