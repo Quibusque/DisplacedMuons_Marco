@@ -1,11 +1,11 @@
 #include <algorithm>
+#include <chrono>
 #include <fstream>
 #include <iostream>
 #include <limits>
 #include <memory>
 #include <string>
 #include <vector>
-#include <chrono>
 
 #include "DataFormats/Candidate/interface/Candidate.h"
 #include "DataFormats/Common/interface/Handle.h"
@@ -345,12 +345,18 @@ void ntuplizer_test::beginJob() {
         tree_out->Branch("dmu_chi2_px", dmu_chi2_px, "dmu_chi2_px[ndmu]/F");
         tree_out->Branch("dmu_chi2_py", dmu_chi2_py, "dmu_chi2_py[ndmu]/F");
         tree_out->Branch("dmu_chi2_pz", dmu_chi2_pz, "dmu_chi2_pz[ndmu]/F");
-        tree_out->Branch("dmu_reco_final_x_err", dmu_reco_final_x_err, "dmu_reco_final_x_err[ndmu]/F");
-        tree_out->Branch("dmu_reco_final_y_err", dmu_reco_final_y_err, "dmu_reco_final_y_err[ndmu]/F");
-        tree_out->Branch("dmu_reco_final_z_err", dmu_reco_final_z_err, "dmu_reco_final_z_err[ndmu]/F");
-        tree_out->Branch("dmu_reco_final_px_err", dmu_reco_final_px_err, "dmu_reco_final_px_err[ndmu]/F");
-        tree_out->Branch("dmu_reco_final_py_err", dmu_reco_final_py_err, "dmu_reco_final_py_err[ndmu]/F");
-        tree_out->Branch("dmu_reco_final_pz_err", dmu_reco_final_pz_err, "dmu_reco_final_pz_err[ndmu]/F");
+        tree_out->Branch("dmu_reco_final_x_err", dmu_reco_final_x_err,
+                         "dmu_reco_final_x_err[ndmu]/F");
+        tree_out->Branch("dmu_reco_final_y_err", dmu_reco_final_y_err,
+                         "dmu_reco_final_y_err[ndmu]/F");
+        tree_out->Branch("dmu_reco_final_z_err", dmu_reco_final_z_err,
+                         "dmu_reco_final_z_err[ndmu]/F");
+        tree_out->Branch("dmu_reco_final_px_err", dmu_reco_final_px_err,
+                         "dmu_reco_final_px_err[ndmu]/F");
+        tree_out->Branch("dmu_reco_final_py_err", dmu_reco_final_py_err,
+                         "dmu_reco_final_py_err[ndmu]/F");
+        tree_out->Branch("dmu_reco_final_pz_err", dmu_reco_final_pz_err,
+                         "dmu_reco_final_pz_err[ndmu]/F");
     }
     // Trigger branches
     for (unsigned int ihlt = 0; ihlt < HLTPaths_.size(); ihlt++) {
@@ -376,6 +382,7 @@ void ntuplizer_test::fillDescriptions(edm::ConfigurationDescriptions& descriptio
 
 // Analyze (per event)
 void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup) {
+    auto start_global = std::chrono::high_resolution_clock::now();
     iEvent.getByToken(dglToken, dgls);
     iEvent.getByToken(dsaToken, dsas);
     iEvent.getByToken(dmuToken, dmuons);
@@ -428,8 +435,8 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
                     // Propagate the gens to the surface for later gen matching
                     // ---------------------------------------------------------
 
-                    // Initial state information in genFTS, final state information in
-                    // genFinalParams
+                    // Initial state information in genFTS, final state
+                    // information in genFinalParams
                     GlobalTrajectoryParameters genFinalParams = GlobalTrajectoryParameters();
                     GlobalVector genMomentum(genParticle.px(), genParticle.py(), genParticle.pz());
                     // Gen vertices are in mm, make it cm
@@ -446,7 +453,8 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
                                                                     genFinalParams.momentum(),
                                                                     genCharge, magField);
                     }
-                    genPropagationResults[n_goodGenMuons] = std::make_pair(genSurface, genFinalParams);
+                    genPropagationResults[n_goodGenMuons] =
+                        std::make_pair(genSurface, genFinalParams);
                     n_goodGenMuons++;
                 }
             }
@@ -455,7 +463,8 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
     }
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed = end - start;
-    std::cout << "Time taken to process gen particles: " << elapsed.count() << " seconds" << std::endl;
+    std::cout << "Time taken to process gen particles: " << elapsed.count() << " seconds"
+              << std::endl;
 
     // ----------------------------------
     // displacedMuons Collection
@@ -501,10 +510,11 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
         dmu_reco_final_pz_err[ndmu] = 9999;
 
         // Access the DSA track associated to the displacedMuon
-        // std::cout << "isStandAloneMuon: " << dmuon.isStandAloneMuon() << std::endl;
+        // std::cout << "isStandAloneMuon: " << dmuon.isStandAloneMuon() <<
+        // std::endl;
         if (dmuon.isStandAloneMuon()) {
             const reco::Track* outerTrack = (dmuon.standAloneMuon()).get();
-            
+
             dmu_dsa_pt[ndmu] = outerTrack->pt();
             dmu_dsa_eta[ndmu] = outerTrack->eta();
             dmu_dsa_phi[ndmu] = outerTrack->phi();
@@ -559,11 +569,11 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
                 chi2Matrix(i, j) = 9999;
                 matchResults[{i, j}] = GenMatchResults::NONE;
                 chi2_vectors[{i, j}] = AlgebraicVector6(9999, 9999, 9999, 9999, 9999, 9999);
-                error_vectors[{i,j}] = AlgebraicVector6(9999, 9999, 9999, 9999, 9999, 9999);
+                error_vectors[{i, j}] = AlgebraicVector6(9999, 9999, 9999, 9999, 9999, 9999);
             }
         } else if (dmuon.isGlobalMuon()) {
-            const reco::Track* innerTrack = (dmuon. innerTrack()).get();
-            
+            const reco::Track* innerTrack = (dmuon.innerTrack()).get();
+
             dmu_dsa_pt[ndmu] = innerTrack->pt();
             dmu_dsa_eta[ndmu] = innerTrack->eta();
             dmu_dsa_phi[ndmu] = innerTrack->phi();
@@ -618,10 +628,9 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
                 chi2Matrix(i, j) = 9999;
                 matchResults[{i, j}] = GenMatchResults::NONE;
                 chi2_vectors[{i, j}] = AlgebraicVector6(9999, 9999, 9999, 9999, 9999, 9999);
-                error_vectors[{i,j}] = AlgebraicVector6(9999, 9999, 9999, 9999, 9999, 9999);
+                error_vectors[{i, j}] = AlgebraicVector6(9999, 9999, 9999, 9999, 9999, 9999);
             }
-        }
-        else {
+        } else {
             dmu_dsa_pt[ndmu] = 0;
             dmu_dsa_eta[ndmu] = 0;
             dmu_dsa_phi[ndmu] = 0;
@@ -671,7 +680,7 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
                 chi2Matrix(i, j) = 9999;
                 matchResults[{i, j}] = GenMatchResults::NONE;
                 chi2_vectors[{i, j}] = AlgebraicVector6(9999, 9999, 9999, 9999, 9999, 9999);
-                error_vectors[{i,j}] = AlgebraicVector6(9999, 9999, 9999, 9999, 9999, 9999);
+                error_vectors[{i, j}] = AlgebraicVector6(9999, 9999, 9999, 9999, 9999, 9999);
             }
             continue;
         }
@@ -713,7 +722,7 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
                 Float_t chi2 = 0;
                 for (int k = 0; k < 6; k++) {
                     chi2 += chi2_vector[k];
-                    //fill chi2_vectors
+                    // fill chi2_vectors
                     chi2_vectors[{i, j}][k] = chi2_vector[k];
                 }
                 chi2Matrix(i, j) = (goodMatch) ? chi2 : 9999;
@@ -739,9 +748,8 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
                 ipath++;
             }
         }
-
     }
-    //end reco muons loop
+    // end reco muons loop
     auto end_all_recos = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed_all_recos = end_all_recos - start_all_recos;
     std::cout << "Time taken to process reco muons: " << elapsed_all_recos.count() << " seconds"
@@ -792,15 +800,14 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
         int genMuonIndex = dmu_genMatchedIndex[i];
         // Check arrays out of bounds
         if (!(genMuonIndex >= 0 && genMuonIndex < n_goodGenMuons)) {
-            std::cout
-                << "Are you sure you are using indices right? Attempt to access genMuonIndex "
-                << genMuonIndex << " in array of size " << n_goodGenMuons << std::endl;
+            std::cout << "Are you sure you are using indices right? Attempt to "
+                         "access genMuonIndex "
+                      << genMuonIndex << " in array of size " << n_goodGenMuons << std::endl;
             continue;
         }
 
         // Propagated trajectories
-        GlobalTrajectoryParameters genFinalParams =
-            propagatedTrajectories[{i, genMuonIndex}].first;
+        GlobalTrajectoryParameters genFinalParams = propagatedTrajectories[{i, genMuonIndex}].first;
         GlobalTrajectoryParameters recoFinalParams =
             propagatedTrajectories[{i, genMuonIndex}].second;
         GenMatchResults matchResult = matchResults[{i, genMuonIndex}];
@@ -808,8 +815,7 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
         const reco::GenParticle& genPart(prunedGen->at(goodGenMuons_indices[genMuonIndex]));
         GlobalPoint genInitialVertex =
             GlobalPoint(genPart.vx() * 0.1, genPart.vy() * 0.1, genPart.vz() * 0.1);
-        GlobalVector genInitialMomentum =
-            GlobalVector(genPart.px(), genPart.py(), genPart.pz());
+        GlobalVector genInitialMomentum = GlobalVector(genPart.px(), genPart.py(), genPart.pz());
 
         GlobalPoint recoFinalVertex = recoFinalParams.position();
         GlobalVector recoFinalMomentum = recoFinalParams.momentum();
@@ -863,12 +869,16 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
 
             dmu_propagationSurface[i] = static_cast<Int_t>(matchResult);
         }
-        auto end_gen_matching = std::chrono::high_resolution_clock::now();
-        std::chrono::duration<double> elapsed_gen_matching = end_gen_matching - start_gen_matching;
-        std::cout << "Time taken to process gen matching: " << elapsed_gen_matching.count()
-                  << " seconds" << std::endl;
     }
+    auto end_gen_matching = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> elapsed_gen_matching = end_gen_matching - start_gen_matching;
+    std::cout << "Time taken to process gen matching: " << elapsed_gen_matching.count()
+              << " seconds" << std::endl;
     //-> Fill tree
     tree_out->Fill();
+    auto end_global = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> elapsed_global = end_global - start_global;
+    std::cout << "Time taken to process whole event: " << elapsed_global.count() << " seconds"
+              << std::endl;
 }
 DEFINE_FWK_MODULE(ntuplizer_test);
