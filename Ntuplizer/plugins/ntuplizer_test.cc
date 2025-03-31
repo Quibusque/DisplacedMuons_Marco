@@ -141,6 +141,12 @@ class ntuplizer_test : public edm::one::EDAnalyzer<edm::one::SharedResources> {
     Float_t dmu_reco_final_p_r[200] = {9999.};
     Float_t dmu_reco_final_p_theta[200] = {9999.};
     Float_t dmu_reco_final_p_phi[200] = {9999.};
+    Float_t dmu_reco_final_x_err[200] = {9999.};
+    Float_t dmu_reco_final_y_err[200] = {9999.};
+    Float_t dmu_reco_final_z_err[200] = {9999.};
+    Float_t dmu_reco_final_px_err[200] = {9999.};
+    Float_t dmu_reco_final_py_err[200] = {9999.};
+    Float_t dmu_reco_final_pz_err[200] = {9999.};
 
     Float_t dmu_gen_initial_r[200] = {9999.};
     Float_t dmu_gen_initial_theta[200] = {9999.};
@@ -338,6 +344,12 @@ void ntuplizer_test::beginJob() {
         tree_out->Branch("dmu_chi2_px", dmu_chi2_px, "dmu_chi2_px[ndmu]/F");
         tree_out->Branch("dmu_chi2_py", dmu_chi2_py, "dmu_chi2_py[ndmu]/F");
         tree_out->Branch("dmu_chi2_pz", dmu_chi2_pz, "dmu_chi2_pz[ndmu]/F");
+        tree_out->Branch("dmu_reco_final_x_err", dmu_reco_final_x_err, "dmu_reco_final_x_err[ndmu]/F");
+        tree_out->Branch("dmu_reco_final_y_err", dmu_reco_final_y_err, "dmu_reco_final_y_err[ndmu]/F");
+        tree_out->Branch("dmu_reco_final_z_err", dmu_reco_final_z_err, "dmu_reco_final_z_err[ndmu]/F");
+        tree_out->Branch("dmu_reco_final_px_err", dmu_reco_final_px_err, "dmu_reco_final_px_err[ndmu]/F");
+        tree_out->Branch("dmu_reco_final_py_err", dmu_reco_final_py_err, "dmu_reco_final_py_err[ndmu]/F");
+        tree_out->Branch("dmu_reco_final_pz_err", dmu_reco_final_pz_err, "dmu_reco_final_pz_err[ndmu]/F");
     }
     // Trigger branches
     for (unsigned int ihlt = 0; ihlt < HLTPaths_.size(); ihlt++) {
@@ -446,6 +458,7 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
     std::map<std::pair<int, int>, std::pair<GlobalTrajectoryParameters, GlobalTrajectoryParameters>>
         propagatedTrajectories;
     TMatrixF chi2Matrix = TMatrixF(dmuons->size(), n_goodGenMuons);
+    std::map<std::pair<int, int>, AlgebraicVector6> error_vectors;
     std::map<std::pair<int, int>, AlgebraicVector6> chi2_vectors;
     std::map<std::pair<int, int>, GenMatchResults> matchResults;
     for (unsigned int i = 0; i < dmuons->size(); i++) {
@@ -471,11 +484,18 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
         dmu_chi2_px[ndmu] = 9999;
         dmu_chi2_py[ndmu] = 9999;
         dmu_chi2_pz[ndmu] = 9999;
+        dmu_reco_final_x_err[ndmu] = 9999;
+        dmu_reco_final_y_err[ndmu] = 9999;
+        dmu_reco_final_z_err[ndmu] = 9999;
+        dmu_reco_final_px_err[ndmu] = 9999;
+        dmu_reco_final_py_err[ndmu] = 9999;
+        dmu_reco_final_pz_err[ndmu] = 9999;
 
         // Access the DSA track associated to the displacedMuon
         // std::cout << "isStandAloneMuon: " << dmuon.isStandAloneMuon() << std::endl;
         if (dmuon.isStandAloneMuon()) {
             const reco::Track* outerTrack = (dmuon.standAloneMuon()).get();
+            
             dmu_dsa_pt[ndmu] = outerTrack->pt();
             dmu_dsa_eta[ndmu] = outerTrack->eta();
             dmu_dsa_phi[ndmu] = outerTrack->phi();
@@ -530,8 +550,69 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
                 chi2Matrix(i, j) = 9999;
                 matchResults[{i, j}] = GenMatchResults::NONE;
                 chi2_vectors[{i, j}] = AlgebraicVector6(9999, 9999, 9999, 9999, 9999, 9999);
+                error_vectors[{i,j}] = AlgebraicVector6(9999, 9999, 9999, 9999, 9999, 9999);
             }
-        } else {
+        } else if (dmuon.isGlobalMuon()) {
+            const reco::Track* innerTrack = (dmuon. innerTrack()).get();
+            
+            dmu_dsa_pt[ndmu] = innerTrack->pt();
+            dmu_dsa_eta[ndmu] = innerTrack->eta();
+            dmu_dsa_phi[ndmu] = innerTrack->phi();
+            dmu_dsa_ptError[ndmu] = innerTrack->ptError();
+            dmu_dsa_dxy[ndmu] = innerTrack->dxy();
+            dmu_dsa_dz[ndmu] = innerTrack->dz();
+            dmu_dsa_normalizedChi2[ndmu] = innerTrack->normalizedChi2();
+            dmu_dsa_charge[ndmu] = innerTrack->charge();
+            dmu_dsa_nMuonHits[ndmu] = innerTrack->hitPattern().numberOfMuonHits();
+            dmu_dsa_nValidMuonHits[ndmu] = innerTrack->hitPattern().numberOfValidMuonHits();
+            dmu_dsa_nValidMuonDTHits[ndmu] = innerTrack->hitPattern().numberOfValidMuonDTHits();
+            dmu_dsa_nValidMuonCSCHits[ndmu] = innerTrack->hitPattern().numberOfValidMuonCSCHits();
+            dmu_dsa_nValidMuonRPCHits[ndmu] = innerTrack->hitPattern().numberOfValidMuonRPCHits();
+            dmu_dsa_nValidStripHits[ndmu] = innerTrack->hitPattern().numberOfValidStripHits();
+            dmu_dsa_nhits[ndmu] = innerTrack->hitPattern().numberOfValidHits();
+            dmu_dsa_dtStationsWithValidHits[ndmu] =
+                innerTrack->hitPattern().dtStationsWithValidHits();
+            dmu_dsa_cscStationsWithValidHits[ndmu] =
+                innerTrack->hitPattern().cscStationsWithValidHits();
+            TVector3 dsa_vertex = TVector3();
+            TVector3 dsa_momentum = TVector3();
+            dsa_vertex.SetXYZ(innerTrack->vx(), innerTrack->vy(), innerTrack->vz());
+            dsa_momentum.SetXYZ(innerTrack->px(), innerTrack->py(), innerTrack->pz());
+            // initial values for the gen matching
+            dmu_reco_initial_r[ndmu] = dsa_vertex.Perp();
+            dmu_reco_initial_theta[ndmu] = dsa_vertex.Theta();
+            dmu_reco_initial_phi[ndmu] = dsa_vertex.Phi();
+            dmu_reco_initial_p_r[ndmu] = dsa_momentum.Perp();
+            dmu_reco_initial_p_theta[ndmu] = dsa_momentum.Theta();
+            dmu_reco_initial_p_phi[ndmu] = dsa_momentum.Phi();
+            dmu_reco_final_r[ndmu] = 9999;
+            dmu_reco_final_theta[ndmu] = 9999;
+            dmu_reco_final_phi[ndmu] = 9999;
+            dmu_reco_final_p_r[ndmu] = 9999;
+            dmu_reco_final_p_theta[ndmu] = 9999;
+            dmu_reco_final_p_phi[ndmu] = 9999;
+
+            dmu_gen_initial_r[ndmu] = 9999;
+            dmu_gen_initial_theta[ndmu] = 9999;
+            dmu_gen_initial_phi[ndmu] = 9999;
+            dmu_gen_initial_p_r[ndmu] = 9999;
+            dmu_gen_initial_p_theta[ndmu] = 9999;
+            dmu_gen_initial_p_phi[ndmu] = 9999;
+            dmu_gen_final_r[ndmu] = 9999;
+            dmu_gen_final_theta[ndmu] = 9999;
+            dmu_gen_final_phi[ndmu] = 9999;
+            dmu_gen_final_p_r[ndmu] = 9999;
+            dmu_gen_final_p_theta[ndmu] = 9999;
+            dmu_gen_final_p_phi[ndmu] = 9999;
+
+            for (int j = 0; j < n_goodGenMuons; j++) {
+                chi2Matrix(i, j) = 9999;
+                matchResults[{i, j}] = GenMatchResults::NONE;
+                chi2_vectors[{i, j}] = AlgebraicVector6(9999, 9999, 9999, 9999, 9999, 9999);
+                error_vectors[{i,j}] = AlgebraicVector6(9999, 9999, 9999, 9999, 9999, 9999);
+            }
+        }
+        else {
             dmu_dsa_pt[ndmu] = 0;
             dmu_dsa_eta[ndmu] = 0;
             dmu_dsa_phi[ndmu] = 0;
@@ -581,6 +662,7 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
                 chi2Matrix(i, j) = 9999;
                 matchResults[{i, j}] = GenMatchResults::NONE;
                 chi2_vectors[{i, j}] = AlgebraicVector6(9999, 9999, 9999, 9999, 9999, 9999);
+                error_vectors[{i,j}] = AlgebraicVector6(9999, 9999, 9999, 9999, 9999, 9999);
             }
             continue;
         }
@@ -615,6 +697,10 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
                 AlgebraicVector6 chi2_vector =
                     calculateChi2Vector(genFinalParams, recoFinalParams, recoError);
 
+                AlgebraicVector6 error_vector = AlgebraicVector6(
+                    recoError.matrix()(0, 0), recoError.matrix()(1, 1), recoError.matrix()(2, 2),
+                    recoError.matrix()(3, 3), recoError.matrix()(4, 4), recoError.matrix()(5, 5));
+                error_vectors[{i, j}] = error_vector;
                 Float_t chi2 = 0;
                 for (int k = 0; k < 6; k++) {
                     chi2 += chi2_vector[k];
@@ -674,6 +760,13 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
                     dmu_chi2_px[i] = chi2_vectors[{i, j}][3];
                     dmu_chi2_py[i] = chi2_vectors[{i, j}][4];
                     dmu_chi2_pz[i] = chi2_vectors[{i, j}][5];
+
+                    dmu_reco_final_x_err[i] = error_vectors[{i, j}][0];
+                    dmu_reco_final_y_err[i] = error_vectors[{i, j}][1];
+                    dmu_reco_final_z_err[i] = error_vectors[{i, j}][2];
+                    dmu_reco_final_px_err[i] = error_vectors[{i, j}][3];
+                    dmu_reco_final_py_err[i] = error_vectors[{i, j}][4];
+                    dmu_reco_final_pz_err[i] = error_vectors[{i, j}][5];
                 }
             }
         }
