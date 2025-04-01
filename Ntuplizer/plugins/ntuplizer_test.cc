@@ -129,6 +129,7 @@ class ntuplizer_test : public edm::one::EDAnalyzer<edm::one::SharedResources> {
     // Variables for gen matching
     bool dmu_hasGenMatch[200] = {false};
     Int_t dmu_genMatchedIndex[200] = {0};
+    Int_t dmu_genMatchMultiplicity[200] = {0};
     Float_t dmu_reco_initial_r[200] = {9999.};
     Float_t dmu_reco_initial_theta[200] = {9999.};
     Float_t dmu_reco_initial_phi[200] = {9999.};
@@ -298,6 +299,8 @@ void ntuplizer_test::beginJob() {
     if (isMCSignal) {
         tree_out->Branch("dmu_hasGenMatch", dmu_hasGenMatch, "dmu_hasGenMatch[ndmu]/O");
         tree_out->Branch("dmu_genMatchedIndex", dmu_genMatchedIndex, "dmu_genMatchedIndex[ndmu]/I");
+        tree_out->Branch("dmu_genMatchMultiplicity", dmu_genMatchMultiplicity,
+                         "dmu_genMatchMultiplicity[ndmu]/I");
         tree_out->Branch("dmu_reco_initial_r", dmu_reco_initial_r, "dmu_reco_initial_r[ndmu]/F");
         tree_out->Branch("dmu_reco_initial_theta", dmu_reco_initial_theta,
                          "dmu_reco_initial_theta[ndmu]/F");
@@ -468,6 +471,7 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
     std::map<std::pair<int, int>, AlgebraicVector6> error_vectors;
     std::map<std::pair<int, int>, AlgebraicVector6> chi2_vectors;
     std::map<std::pair<int, int>, GenMatchResults> matchResults;
+    // start of loop over reco displacedMuons
     for (unsigned int i = 0; i < dmuons->size(); i++) {
         // std::cout << " - - ndmu: " << ndmu << std::endl;
         const reco::Muon& dmuon(dmuons->at(i));
@@ -483,6 +487,8 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
         dmu_t0_InOut[ndmu] = dmuon.time().timeAtIpInOut;
         dmu_t0_OutIn[ndmu] = dmuon.time().timeAtIpOutIn;
         dmu_hasGenMatch[ndmu] = false;
+        dmu_genMatchedIndex[ndmu] = -1;
+        dmu_genMatchMultiplicity[ndmu] = 0;
         dmu_propagationSurface[ndmu] = -1;
         dmu_chi2[ndmu] = 9999;
         dmu_chi2_x[ndmu] = 9999;
@@ -708,7 +714,7 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
                     recoError.matrix()(3, 3), recoError.matrix()(4, 4), recoError.matrix()(5, 5));
                 error_vectors[{i, j}] = error_vector;
                 Float_t chi2 = 0;
-                for (int k = 0; k < 6; k++) {
+                for (int k = 0; k < 3; k++) {
                     chi2 += chi2_vector[k];
                     // fill chi2_vectors
                     chi2_vectors[{i, j}][k] = chi2_vector[k];
@@ -742,8 +748,36 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
     //  Gen Matching continued MUST BE OUTSIDE LOOP ON RECOS
     //  -----------------------------------------------------
 
-    TMatrixF boolMatrix = TMatrixF(200, 200);
-    markMinimalValues(chi2Matrix, boolMatrix);
+    TMatrixF boolMatrix = TMatrixF(dmuons->size(), n_goodGenMuons);
+    boolMatrix.Zero();
+    // Assign boolMatrix according to genMatching spatial criteria:
+    // residual on x and y below 15 and on z below 100
+    Float_t x_y_threshold = 20.;
+    Float_t z_threshold = 100.;
+    for (unsigned int i = 0; i < dmuons->size(); i++) {
+        for (Int_t j = 0; j < n_goodGenMuons; j++) {
+            auto genFinalParams = propagatedTrajectories[{i, j}].first;
+            auto recoFinalParams = propagatedTrajectories[{i, j}].second;
+            auto matchResult = matchResults[{i, j}];
+            bool goodMatch = (static_cast<int>(matchResult) > 0);
+            if (goodMatch) {
+                // Calculate the residuals
+                GlobalPoint genFinalVertex = genFinalParams.position();
+                GlobalPoint recoFinalVertex = recoFinalParams.position();
+                // Calculate the residuals
+                double residual_x = genFinalVertex.x() - recoFinalVertex.x();
+                double residual_y = genFinalVertex.y() - recoFinalVertex.y();
+                double residual_z = genFinalVertex.z() - recoFinalVertex.z();
+
+                // Check if the residuals are within the specified limits
+                if (abs(residual_x) < x_y_threshold && abs(residual_y) < x_y_threshold &&
+                    abs(residual_z) < z_threshold) {
+                    boolMatrix(i, j) = 1.0;
+                }
+            }
+        }
+    }
+
     // Loop over true entries of bool matrix and set them to zero
     // if the corresponding chi2Matrix element is 9999
     for (int i = 0; i < chi2Matrix.GetNrows(); i++) {
@@ -754,29 +788,47 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
         }
     }
 
-    // Set dmu_hasGenMatch and dmu_genMatchedIndex
-    for (unsigned int i = 0; i < dmuons->size(); i++) {
-        for (Int_t j = 0; j < n_goodGenMuons; j++) {
-            if (boolMatrix(i, j) == 1.0) {
-                dmu_hasGenMatch[i] = true;
-                dmu_genMatchedIndex[i] = j;
-                dmu_chi2[i] = chi2Matrix(i, j);
-                dmu_chi2_x[i] = chi2_vectors[{i, j}][0];
-                dmu_chi2_y[i] = chi2_vectors[{i, j}][1];
-                dmu_chi2_z[i] = chi2_vectors[{i, j}][2];
-                dmu_chi2_px[i] = chi2_vectors[{i, j}][3];
-                dmu_chi2_py[i] = chi2_vectors[{i, j}][4];
-                dmu_chi2_pz[i] = chi2_vectors[{i, j}][5];
+    // Set dmu_hasGenMatch, dmu_genMatchedIndex and dmu_genMatchMultiplicity
+    // Loop over columns to find the best match for each column
+    for (Int_t j = 0; j < n_goodGenMuons; j++) {
+        int bestRow = -1;
+        float minChi2 = std::numeric_limits<float>::max();
+        int matchCount = 0;
 
-                dmu_reco_final_x_err[i] = error_vectors[{i, j}][0];
-                dmu_reco_final_y_err[i] = error_vectors[{i, j}][1];
-                dmu_reco_final_z_err[i] = error_vectors[{i, j}][2];
-                dmu_reco_final_px_err[i] = error_vectors[{i, j}][3];
-                dmu_reco_final_py_err[i] = error_vectors[{i, j}][4];
-                dmu_reco_final_pz_err[i] = error_vectors[{i, j}][5];
+        // Loop over rows to find the best match for this column
+        for (unsigned int i = 0; i < dmuons->size(); i++) {
+            if (boolMatrix(i, j) == 1.0) {
+                matchCount++;
+                if (chi2Matrix(i, j) < minChi2) {
+                    minChi2 = chi2Matrix(i, j);
+                    bestRow = i;
+                }
             }
         }
+
+        // If a best match is found, update the corresponding variables
+        if (bestRow != -1) {
+            dmu_hasGenMatch[bestRow] = true;
+            dmu_genMatchedIndex[bestRow] = j;
+            dmu_genMatchMultiplicity[bestRow] = matchCount;
+
+            dmu_chi2[bestRow] = chi2Matrix(bestRow, j);
+            dmu_chi2_x[bestRow] = chi2_vectors[{bestRow, j}][0];
+            dmu_chi2_y[bestRow] = chi2_vectors[{bestRow, j}][1];
+            dmu_chi2_z[bestRow] = chi2_vectors[{bestRow, j}][2];
+            dmu_chi2_px[bestRow] = chi2_vectors[{bestRow, j}][3];
+            dmu_chi2_py[bestRow] = chi2_vectors[{bestRow, j}][4];
+            dmu_chi2_pz[bestRow] = chi2_vectors[{bestRow, j}][5];
+
+            dmu_reco_final_x_err[bestRow] = error_vectors[{bestRow, j}][0];
+            dmu_reco_final_y_err[bestRow] = error_vectors[{bestRow, j}][1];
+            dmu_reco_final_z_err[bestRow] = error_vectors[{bestRow, j}][2];
+            dmu_reco_final_px_err[bestRow] = error_vectors[{bestRow, j}][3];
+            dmu_reco_final_py_err[bestRow] = error_vectors[{bestRow, j}][4];
+            dmu_reco_final_pz_err[bestRow] = error_vectors[{bestRow, j}][5];
+        }
     }
+
     // Assign residuals
     for (unsigned int i = 0; i < dmuons->size(); i++) {
         int genMuonIndex = dmu_genMatchedIndex[i];
