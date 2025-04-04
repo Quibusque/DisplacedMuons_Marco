@@ -4,3 +4,4 @@ Ntuplizer/test/__pycache__/
 Ntuplizer/test/crab.log
 **/*.root
 **/*.log
+.vscode/
