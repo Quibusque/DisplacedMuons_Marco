@@ -1,6 +1,6 @@
 #!/bin/bash
 # Make sure the script is executable: chmod +x runJob_cosmics.sh
-
+cd /afs/cern.ch/user/m/mcrucian/private/displaced_muons/CMSSW_13_3_0/src/DisplacedMuons-FrameWork/Ntuplizer/test
 cmsenv
 
 # Define log file (this can be customized)
