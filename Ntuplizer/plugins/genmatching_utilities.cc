@@ -63,7 +63,7 @@ AlgebraicVector6 calculateChi2Vector(GlobalTrajectoryParameters genParams,
     AlgebraicVector6 errors = recoCovMatrix.Diagonal();
     AlgebraicVector6 chi2_vec;
     for (int i = 0; i < 6; i++) {
-        chi2_vec(i) = delta(i) * delta(i) / errors(i);
+        chi2_vec(i) = delta(i) * delta(i) / (errors(i) * errors(i));
     }
 
     return chi2_vec/6;
