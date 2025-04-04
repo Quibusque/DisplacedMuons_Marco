@@ -31,6 +31,7 @@
 #include "FWCore/Framework/interface/MakerMacros.h"
 #include "FWCore/Framework/interface/one/EDAnalyzer.h"
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
+#include "Geometry/DTGeometry/interface/DTGeometry.h"
 #include "MagneticField/Engine/interface/MagneticField.h"
 #include "MagneticField/Records/interface/IdealMagneticFieldRecord.h"
 #include "Math/Error.h"
@@ -99,6 +100,10 @@ class ntuplizer_test : public edm::one::EDAnalyzer<edm::one::SharedResources> {
     edm::ESGetToken<MagneticField, IdealMagneticFieldRecord> theMagFieldToken;
     edm::ESHandle<MagneticField> magField_;
 
+    // DT geometry
+    edm::ESGetToken<DTGeometry, MuonGeometryRecord> dtGeomToken;
+    edm::ESHandle<DTGeometry> dtGeom_;
+
     // Trigger tags
     std::vector<std::string> HLTPaths_;
     bool triggerPass[200] = {false};
@@ -147,6 +152,9 @@ class ntuplizer_test : public edm::one::EDAnalyzer<edm::one::SharedResources> {
     Float_t dmu_reco_final_px_err[200] = {9999.};
     Float_t dmu_reco_final_py_err[200] = {9999.};
     Float_t dmu_reco_final_pz_err[200] = {9999.};
+    Float_t dmu_seg_residual_phi[200] = {9999.};
+    Float_t dmu_seg_residual_z[200] = {9999.};
+    Float_t dmu_seg_chi2[200] = {9999.};
 
     Float_t dmu_gen_initial_r[200] = {9999.};
     Float_t dmu_gen_initial_theta[200] = {9999.};
@@ -225,6 +233,8 @@ ntuplizer_test::ntuplizer_test(const edm::ParameterSet& iConfig) {
             edm::ESInputTag("", parameters.getParameter<std::string>("propagatorOpposite")));
         theMagFieldToken = esConsumes<MagneticField, IdealMagneticFieldRecord>();
     }
+    dtGeomToken = esConsumes<DTGeometry, MuonGeometryRecord>();
+
     triggerBits_ = consumes<edm::TriggerResults>(parameters.getParameter<edm::InputTag>("bits"));
 }
 
@@ -293,6 +303,9 @@ void ntuplizer_test::beginJob() {
                      "dmu_dsa_dtStationsWithValidHits[ndmu]/I");
     tree_out->Branch("dmu_dsa_cscStationsWithValidHits", dmu_dsa_cscStationsWithValidHits,
                      "dmu_dsa_cscStationsWithValidHits[ndmu]/I");
+    tree_out->Branch("dmu_seg_residual_phi", dmu_seg_residual_phi, "dmu_dsa_nsegments[ndmu]/F");
+    tree_out->Branch("dmu_seg_residual_z", dmu_seg_residual_z, "dmu_dsa_nsegments[ndmu]/F");
+    tree_out->Branch("dmu_seg_chi2", dmu_seg_chi2, "dmu_dsa_nsegments[ndmu]/F");
 
     // Gen Matching branches
     if (isMCSignal) {
@@ -401,6 +414,8 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
         magField_ = iSetup.getHandle(theMagFieldToken);
         magField = magField_.product();
     }
+    dtGeom_ = iSetup.getHandle(dtGeomToken);
+    const DTGeometry* m_dtGeometry = dtGeom_.product();
     iEvent.getByToken(triggerBits_, triggerBits);
 
     // Count number of events read
@@ -470,6 +485,10 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
     std::map<std::pair<int, int>, GenMatchResults> matchResults;
     for (unsigned int i = 0; i < dmuons->size(); i++) {
         const reco::Muon& dmuon(dmuons->at(i));
+        if (dmuon.pt() < 5) { //these muons do not have the track.extra
+            std::cout << "Low pt muon object, skipping" << std::endl;
+            continue;
+        }
         dmu_isDGL[ndmu] = dmuon.isGlobalMuon();
         dmu_isDSA[ndmu] = dmuon.isStandAloneMuon();
         dmu_isDTK[ndmu] = dmuon.isTrackerMuon();
@@ -496,6 +515,10 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
         dmu_reco_final_px_err[ndmu] = 9999;
         dmu_reco_final_py_err[ndmu] = 9999;
         dmu_reco_final_pz_err[ndmu] = 9999;
+
+        dmu_seg_residual_phi[ndmu] = 9999;
+        dmu_seg_residual_z[ndmu] = 9999;
+        dmu_seg_chi2[ndmu] = 9999;
 
         if (dmuon.isGlobalMuon()) {
             const reco::Track* innerTrack = (dmuon.innerTrack()).get();
@@ -559,6 +582,20 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
         } else if (dmuon.isStandAloneMuon()) {
             const reco::Track* outerTrack = (dmuon.standAloneMuon()).get();
 
+            // Try lookig at recHits. This is just a pointless test to throw an exception
+            // if the recHits are not available
+            try {
+                auto dsaTrackExtra = outerTrack->extra();
+                const auto& recHits = dsaTrackExtra->recHits();
+                for (const auto& recHit : recHits) {
+                    recHit->isValid();
+                    break;
+                }
+            } catch (const std::exception& e) {
+                std::cout << "Exception while accessing RecHits" << std::endl;
+                continue;
+            }
+
             dmu_dsa_pt[ndmu] = outerTrack->pt();
             dmu_dsa_eta[ndmu] = outerTrack->eta();
             dmu_dsa_phi[ndmu] = outerTrack->phi();
@@ -614,6 +651,58 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
                 matchResults[{ndmu, j}] = GenMatchResults::NONE;
                 chi2_vectors[{ndmu, j}] = AlgebraicVector6(9999, 9999, 9999, 9999, 9999, 9999);
                 error_vectors[{ndmu, j}] = AlgebraicVector6(9999, 9999, 9999, 9999, 9999, 9999);
+            }
+
+            // ------------------------------------------------------------------------
+            // Try going from the vertex to the stations and match with the segments
+            // ------------------------------------------------------------------------
+
+            auto recHitIt = outerTrack->recHitsBegin();
+            auto recHitEnd = outerTrack->recHitsEnd();
+
+            // Only check the first segment
+            for (; recHitIt != recHitEnd; ++recHitIt) {
+                DetId detId = (*recHitIt)->geographicalId();
+
+                if (detId.det() == DetId::Muon && detId.subdetId() == MuonSubdetId::DT) {
+                    const auto dtSegmentSta = dynamic_cast<const DTRecSegment4D*>((*recHitIt));
+                    const auto chamb = m_dtGeometry->chamber(static_cast<DTChamberId>(detId));
+                    auto segPosition = chamb->toGlobal(dtSegmentSta->localPosition());
+
+                    // Build reco initial state, including error from track covariance matrix
+                    GlobalPoint recoVertex(outerTrack->vx(), outerTrack->vy(), outerTrack->vz());
+                    GlobalVector recoMomentum(outerTrack->px(), outerTrack->py(), outerTrack->pz());
+                    int recoCharge = outerTrack->charge();
+                    FreeTrajectoryState recoFTS(recoVertex, recoMomentum, recoCharge, magField);
+                    recoFTS.setCurvilinearError(
+                        CurvilinearTrajectoryError(outerTrack->covariance()));
+                    TsosPath recoTsosPath = TsosPath();
+
+                    bool propagationGood =
+                        propagateToCylinder(segPosition.perp(), -700, 700, recoFTS, propagatorAlong,
+                                            propagatorOpposite, recoTsosPath, false);
+                    if (propagationGood) {
+                        GlobalPoint recoFinalPosition = recoTsosPath.first.globalPosition();
+                        AlgebraicVector6 recoFinalError =
+                            CartesianTrajectoryError(recoTsosPath.first.cartesianError())
+                                .matrix()
+                                .Diagonal();
+                        dmu_seg_residual_phi[ndmu] = recoFinalPosition.phi() - segPosition.phi();
+                        dmu_seg_residual_z[ndmu] = recoFinalPosition.z() - segPosition.z();
+                        auto x_residual = recoFinalPosition.x() - segPosition.x();
+                        auto y_residual = recoFinalPosition.y() - segPosition.y();
+                        auto z_residual = recoFinalPosition.z() - segPosition.z();
+                        Float_t chi2 =
+                            (x_residual * x_residual) / (recoFinalError(0) * recoFinalError(0)) +
+                            (y_residual * y_residual) / (recoFinalError(1) * recoFinalError(1)) +
+                            (z_residual * z_residual) / (recoFinalError(2) * recoFinalError(2));
+                        dmu_seg_chi2[ndmu] = chi2 / 3.;
+                    } else {
+                        // I have not seen this happen but this is just to be sure
+                        std::cout << "Propagation to DT segment failed" << std::endl;
+                    }
+                    break;  // Only check the first segment
+                }
             }
         } else {
             dmu_dsa_pt[ndmu] = 0;
