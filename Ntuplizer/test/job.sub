@@ -1,0 +1,22 @@
+universe            = vanilla
+should_transfer_files = YES
+when_to_transfer_output = ON_EXIT
+
+output = ../condor_logs/job_$(Cluster)_$(Process).out
+error  = ../condor_logs/job_$(Cluster)_$(Process).err
+log    = ../condor_logs/job_$(Cluster).log
++JobFlavour = "espresso"
+
+# Set executable for the first set
+executable = runJob.sh
+
+queue input_dir, out_file from (
+  "HTo2ZdTo2mu2x_MZd-40_Epsilon-2e-08" "MC_Ntuples_MZd-40_Epsilon-2e-08_test.root"
+  "HTo2ZdTo2mu2x_MZd-40_Epsilon-8e-08" "MC_Ntuples_MZd-40_Epsilon-8e-08_test.root"
+  "HTo2ZdTo2mu2x_MZd-40_Epsilon-5e-09" "MC_Ntuples_MZd-40_Epsilon-5e-09_test.root"
+)
+
+# Now change the executable for the Cosmics job
+executable = runJob_cosmics.sh
+
+queue 1
