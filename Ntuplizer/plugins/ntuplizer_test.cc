@@ -469,7 +469,6 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
     std::map<std::pair<int, int>, AlgebraicVector6> chi2_vectors;
     std::map<std::pair<int, int>, GenMatchResults> matchResults;
     for (unsigned int i = 0; i < dmuons->size(); i++) {
-        // std::cout << " - - ndmu: " << ndmu << std::endl;
         const reco::Muon& dmuon(dmuons->at(i));
         dmu_isDGL[ndmu] = dmuon.isGlobalMuon();
         dmu_isDSA[ndmu] = dmuon.isStandAloneMuon();
@@ -552,10 +551,10 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
             dmu_gen_final_p_phi[ndmu] = 9999;
 
             for (int j = 0; j < n_goodGenMuons; j++) {
-                chi2Matrix(i, j) = 9999;
-                matchResults[{i, j}] = GenMatchResults::NONE;
-                chi2_vectors[{i, j}] = AlgebraicVector6(9999, 9999, 9999, 9999, 9999, 9999);
-                error_vectors[{i, j}] = AlgebraicVector6(9999, 9999, 9999, 9999, 9999, 9999);
+                chi2Matrix(ndmu, j) = 9999;
+                matchResults[{ndmu, j}] = GenMatchResults::NONE;
+                chi2_vectors[{ndmu, j}] = AlgebraicVector6(9999, 9999, 9999, 9999, 9999, 9999);
+                error_vectors[{ndmu, j}] = AlgebraicVector6(9999, 9999, 9999, 9999, 9999, 9999);
             }
         } else if (dmuon.isStandAloneMuon()) {
             const reco::Track* outerTrack = (dmuon.standAloneMuon()).get();
@@ -611,10 +610,10 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
             dmu_gen_final_p_phi[ndmu] = 9999;
 
             for (int j = 0; j < n_goodGenMuons; j++) {
-                chi2Matrix(i, j) = 9999;
-                matchResults[{i, j}] = GenMatchResults::NONE;
-                chi2_vectors[{i, j}] = AlgebraicVector6(9999, 9999, 9999, 9999, 9999, 9999);
-                error_vectors[{i, j}] = AlgebraicVector6(9999, 9999, 9999, 9999, 9999, 9999);
+                chi2Matrix(ndmu, j) = 9999;
+                matchResults[{ndmu, j}] = GenMatchResults::NONE;
+                chi2_vectors[{ndmu, j}] = AlgebraicVector6(9999, 9999, 9999, 9999, 9999, 9999);
+                error_vectors[{ndmu, j}] = AlgebraicVector6(9999, 9999, 9999, 9999, 9999, 9999);
             }
         } else {
             dmu_dsa_pt[ndmu] = 0;
@@ -663,10 +662,10 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
             dmu_gen_final_p_phi[ndmu] = 9999;
 
             for (int j = 0; j < n_goodGenMuons; j++) {
-                chi2Matrix(i, j) = 9999;
-                matchResults[{i, j}] = GenMatchResults::NONE;
-                chi2_vectors[{i, j}] = AlgebraicVector6(9999, 9999, 9999, 9999, 9999, 9999);
-                error_vectors[{i, j}] = AlgebraicVector6(9999, 9999, 9999, 9999, 9999, 9999);
+                chi2Matrix(ndmu, j) = 9999;
+                matchResults[{ndmu, j}] = GenMatchResults::NONE;
+                chi2_vectors[{ndmu, j}] = AlgebraicVector6(9999, 9999, 9999, 9999, 9999, 9999);
+                error_vectors[{ndmu, j}] = AlgebraicVector6(9999, 9999, 9999, 9999, 9999, 9999);
             }
             continue;
         }
@@ -695,8 +694,8 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
                     genSurface, candidateTrack, magField, propagatorAlong, propagatorOpposite,
                     genFinalParams, recoFinalParams, recoError, deltaR_threshold);
 
-                propagatedTrajectories[{i, j}] = {genFinalParams, recoFinalParams};
-                matchResults[{i, j}] = matchResult;
+                propagatedTrajectories[{ndmu, j}] = {genFinalParams, recoFinalParams};
+                matchResults[{ndmu, j}] = matchResult;
                 bool goodMatch = (static_cast<int>(matchResult) > 0);
                 AlgebraicVector6 chi2_vector =
                     calculateChi2Vector(genFinalParams, recoFinalParams, recoError);
@@ -704,16 +703,15 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
                 AlgebraicVector6 error_vector = AlgebraicVector6(
                     recoError.matrix()(0, 0), recoError.matrix()(1, 1), recoError.matrix()(2, 2),
                     recoError.matrix()(3, 3), recoError.matrix()(4, 4), recoError.matrix()(5, 5));
-                error_vectors[{i, j}] = error_vector;
+                error_vectors[{ndmu, j}] = error_vector;
                 Float_t chi2 = 0;
                 for (int k = 0; k < 6; k++) {
                     chi2 += chi2_vector[k];
                     // fill chi2_vectors
-                    chi2_vectors[{i, j}][k] = chi2_vector[k];
+                    chi2_vectors[{ndmu, j}][k] = chi2_vector[k];
                 }
-                chi2Matrix(i, j) = (goodMatch) ? chi2 : 9999;
+                chi2Matrix(ndmu, j) = (goodMatch) ? chi2 : 9999;
             }
-            ndmu++;
 
             // Check if trigger fired:
             const edm::TriggerNames& names = iEvent.triggerNames(*triggerBits);
@@ -734,6 +732,7 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
                 ipath++;
             }
         }
+        ndmu++;
     }
     // end of loop over reco displacedMuons
     //  -----------------------------------------------------
