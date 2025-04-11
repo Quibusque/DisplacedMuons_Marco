@@ -14,14 +14,14 @@ bool hasMotherWithPdgId(const reco::Candidate* particle, int pdgId) {
     return false;
 }
 
-
 GenMatchResults matchRecoTrackToGenSurface(
-    const PropagationSurface genSurface, const reco::Track* recoTrack, const MagneticField* magField,
-    const Propagator* propagatorAlong, const Propagator* propagatorOpposite,
-    const GlobalTrajectoryParameters& genFinalParams, GlobalTrajectoryParameters& recoFinalParams,
-    CartesianTrajectoryError& finalRecoError, Float_t deltaR_thr) {
-    if (genSurface.genMatchResult == GenMatchResults::NONE) {
-        return GenMatchResults::NONE;
+    const PropagationSurface genSurface, const reco::Track* recoTrack,
+    const MagneticField* magField, const Propagator* propagatorAlong,
+    const Propagator* propagatorOpposite, const GlobalTrajectoryParameters& genFinalParams,
+    GlobalTrajectoryParameters& recoFinalParams, CartesianTrajectoryError& finalRecoError,
+    Float_t deltaR_thr) {
+    if (static_cast<int>(genSurface.genMatchResult) < 0) {
+        return genSurface.genMatchResult;
     }
 
     // Build reco initial state, including error from track covariance matrix
@@ -66,5 +66,5 @@ AlgebraicVector6 calculateChi2Vector(GlobalTrajectoryParameters genParams,
         chi2_vec(i) = delta(i) * delta(i) / (errors(i) * errors(i));
     }
 
-    return chi2_vec/6;
+    return chi2_vec / 6;
 }

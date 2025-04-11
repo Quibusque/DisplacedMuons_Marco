@@ -444,7 +444,8 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
                     PropagationSurface genSurface = findAndPropagateToOptimalSurface(
                         genFTS, genFinalParams, magField, propagatorAlong, propagatorOpposite);
 
-                    if (genSurface != PropagationConstants::NONE) {
+                    bool goodMatch = (static_cast<int>(genSurface.genMatchResult) > 0);
+                    if (goodMatch) {
                         genFinalParams = GlobalTrajectoryParameters(genFinalParams.position(),
                                                                     genFinalParams.momentum(),
                                                                     genCharge, magField);

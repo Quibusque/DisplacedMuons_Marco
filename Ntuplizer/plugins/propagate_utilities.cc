@@ -219,6 +219,13 @@ PropagationSurface findAndPropagateToOptimalSurface(FreeTrajectoryState fts,
                                                     const MagneticField* magField,
                                                     const Propagator* propagatorAlong,
                                                     const Propagator* propagatorOpposite) {
+    // Check initial position to be within CMS bounds
+    Float_t posZ = fts.position().z();
+    Float_t posR = fts.position().perp();
+    if (posZ < PropagationConstants::MIN_CMS_Z || posZ > PropagationConstants::MAX_CMS_Z ||
+        posR > PropagationConstants::MAX_CMS_CYLINDER_RADIUS) {
+        return PropagationConstants::GEN_OUTSIDE_CMS;
+    }
     TsosPath tsosPath = TsosPath();
     PropagationSurface optimalSurface = PropagationConstants::NONE;
 
@@ -290,7 +297,7 @@ bool propagateToSurface(FreeTrajectoryState fts, TsosPath& tsosPath,
         Float_t maxZ = PropagationConstants::CYLINDER.maxZ;
         bool checkZRange = false;
         return propagateToCylinder(radius, minZ, maxZ, fts, propagatorAlong, propagatorOpposite,
-                                   tsosPath,checkZRange);
+                                   tsosPath, checkZRange);
     } else if (propagationSurface == PropagationConstants::POS_ENDCAP) {
         Float_t maxZ = PropagationConstants::POS_ENDCAP.maxZ;
         Float_t maxRadius = PropagationConstants::POS_ENDCAP.radius;
