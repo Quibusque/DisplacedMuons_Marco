@@ -341,9 +341,9 @@ void ntuplizer_gens::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
                         genmu_gen_final_p_r[ngenmu] = genFinalParams.momentum().perp();
                         genmu_gen_final_p_theta[ngenmu] = genFinalParams.momentum().theta();
                         genmu_gen_final_p_phi[ngenmu] = genFinalParams.momentum().phi();
-                        genmu_propagationSurface[ngenmu] =
-                            static_cast<Int_t>(genSurface.genMatchResult);
                     }
+                    genmu_propagationSurface[ngenmu] =
+                        static_cast<Int_t>(genSurface.genMatchResult);
                     ngenmu++;
                 }
             }
