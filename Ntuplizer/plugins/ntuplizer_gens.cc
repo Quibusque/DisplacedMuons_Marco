@@ -117,6 +117,7 @@ class ntuplizer_gens : public edm::one::EDAnalyzer<edm::one::SharedResources> {
     Int_t genmu_isDTK[200] = {0};
 
     Float_t genmu_gen_initial_r[200] = {9999.};
+    Float_t genmu_gen_initial_z[200] = {9999.};
     Float_t genmu_gen_initial_theta[200] = {9999.};
     Float_t genmu_gen_initial_phi[200] = {9999.};
     Float_t genmu_gen_final_r[200] = {9999.};
@@ -204,6 +205,7 @@ void ntuplizer_gens::beginJob() {
     tree_out->Branch("genmu_isDGL", genmu_isDGL, "genmu_isDGL[ngenmu]/I");
     tree_out->Branch("genmu_isDTK", genmu_isDTK, "genmu_isDTK[ngenmu]/I");
     tree_out->Branch("genmu_gen_initial_r", genmu_gen_initial_r, "genmu_gen_initial_r[ngenmu]/F");
+    tree_out->Branch("genmu_gen_initial_z", genmu_gen_initial_z, "genmu_gen_initial_z[ngenmu]/F");
     tree_out->Branch("genmu_gen_initial_theta", genmu_gen_initial_theta,
                      "genmu_gen_initial_theta[ngenmu]/F");
     tree_out->Branch("genmu_gen_initial_phi", genmu_gen_initial_phi,
@@ -286,7 +288,7 @@ void ntuplizer_gens::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
     // ----------------------------------
     // genParticles Collection
     // ----------------------------------
-    Int_t ngenmu = 0;
+    ngenmu = 0;
     if (isMCSignal) {
         for (unsigned int i = 0; i < prunedGen->size(); i++) {
             const reco::GenParticle& genParticle(prunedGen->at(i));
@@ -301,8 +303,9 @@ void ntuplizer_gens::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
                     GlobalPoint genVertex(genParticle.vx() * 0.1, genParticle.vy() * 0.1,
                                           genParticle.vz() * 0.1);
                     int genCharge = genParticle.charge();
-                    //Ntuple variables
+                    // Ntuple variables
                     genmu_gen_initial_r[ngenmu] = genVertex.perp();
+                    genmu_gen_initial_z[ngenmu] = genVertex.z();
                     genmu_gen_initial_theta[ngenmu] = genVertex.theta();
                     genmu_gen_initial_phi[ngenmu] = genVertex.phi();
                     genmu_gen_initial_p_r[ngenmu] = genMomentum.perp();
