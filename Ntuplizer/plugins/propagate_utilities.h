@@ -73,22 +73,23 @@ PropagationSurface findAndPropagateToOptimalSurface(FreeTrajectoryState fts,
                                                     const Propagator* propagatorAlong,
                                                     const Propagator* propagatorOpposite);
 /**
- * @brief Propagate the fts to the surface. Final state is in tsosPath.
- * 
+ * @brief Propagate the fts to the surface at targetVertex. Final state is in tsosPath.
+ *
  * The propagation is "forced" i.e. no constraints are applied to the final z while
  * propagating to barrel and no constraints are applied to the final r while propagating
  * to endcap. This is to ensure that the propagation is successful to go to that surface even
  * in edge cases.
- * 
+ *
  * @param fts the initial state
  * @param tsosPath the final state (modified by the function)
- * @param propagationSurface the surface to propagate to
+ * @param targetVertex the target vertex where the surface is located
+ * @param propagationSurface the kind of surface to propagate to (cylinder or plane)
  * @param magField
  * @param propagatorAlong
  * @param propagatorOpposite
  * @return true if the propagation was successful, false otherwise
- */                                                 
-bool propagateToSurface(FreeTrajectoryState fts, TsosPath& tsosPath,
+ */
+bool propagateToSurface(FreeTrajectoryState fts, TsosPath& tsosPath, GlobalPoint targetVertex,
                         const PropagationSurface propagationSurface, const MagneticField* magField,
                         const Propagator* propagatorAlong, const Propagator* propagatorOpposite);
 

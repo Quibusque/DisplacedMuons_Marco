@@ -288,24 +288,24 @@ PropagationSurface findAndPropagateToOptimalSurface(FreeTrajectoryState fts,
     return optimalSurface;
 }
 
-bool propagateToSurface(FreeTrajectoryState fts, TsosPath& tsosPath,
+bool propagateToSurface(FreeTrajectoryState fts, TsosPath& tsosPath, GlobalPoint targetVertex,
                         const PropagationSurface propagationSurface, const MagneticField* magField,
                         const Propagator* propagatorAlong, const Propagator* propagatorOpposite) {
     if (propagationSurface == PropagationConstants::CYLINDER) {
-        Float_t radius = PropagationConstants::CYLINDER.radius;
+        Float_t radius = targetVertex.perp();
         Float_t minZ = PropagationConstants::CYLINDER.minZ;
         Float_t maxZ = PropagationConstants::CYLINDER.maxZ;
         bool checkZRange = false;
         return propagateToCylinder(radius, minZ, maxZ, fts, propagatorAlong, propagatorOpposite,
                                    tsosPath, checkZRange);
     } else if (propagationSurface == PropagationConstants::POS_ENDCAP) {
-        Float_t maxZ = PropagationConstants::POS_ENDCAP.maxZ;
+        Float_t maxZ = targetVertex.z();
         Float_t maxRadius = PropagationConstants::POS_ENDCAP.radius;
         bool checkFinalRadius = false;
         return propagateToZPlane(maxRadius, maxZ, fts, propagatorAlong, propagatorOpposite,
                                  tsosPath, checkFinalRadius);
     } else if (propagationSurface == PropagationConstants::NEG_ENDCAP) {
-        Float_t minZ = PropagationConstants::NEG_ENDCAP.minZ;
+        Float_t minZ = targetVertex.z();
         Float_t maxRadius = PropagationConstants::NEG_ENDCAP.radius;
         bool checkFinalRadius = false;
         return propagateToZPlane(maxRadius, minZ, fts, propagatorAlong, propagatorOpposite,
