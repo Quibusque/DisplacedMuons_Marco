@@ -39,7 +39,7 @@ bool hasMotherWithPdgId(const reco::Candidate* particle, int pdgId);
  * @return The matching result as a GenMatchResults enum value.
  */
 GenMatchResults matchRecoTrackToGenSurface(
-    const PropagationSurface genSurface, const reco::Track* recoTrack, const MagneticField* magField,
+    const PropagationSurface genSurface, const GlobalPoint genVertex, const reco::Track* recoTrack, const MagneticField* magField,
     const Propagator* propagatorAlong, const Propagator* propagatorOpposite,
     const GlobalTrajectoryParameters& genFinalParams, GlobalTrajectoryParameters& recoFinalParams,
     CartesianTrajectoryError& finalRecoError, Float_t deltaR_thr);

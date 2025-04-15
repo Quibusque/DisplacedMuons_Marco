@@ -15,7 +15,7 @@ bool hasMotherWithPdgId(const reco::Candidate* particle, int pdgId) {
 }
 
 GenMatchResults matchRecoTrackToGenSurface(
-    const PropagationSurface genSurface, const reco::Track* recoTrack,
+    const PropagationSurface genSurface, const GlobalPoint genVertex, const reco::Track* recoTrack,
     const MagneticField* magField, const Propagator* propagatorAlong,
     const Propagator* propagatorOpposite, const GlobalTrajectoryParameters& genFinalParams,
     GlobalTrajectoryParameters& recoFinalParams, CartesianTrajectoryError& finalRecoError,
@@ -32,8 +32,8 @@ GenMatchResults matchRecoTrackToGenSurface(
     recoFTS.setCurvilinearError(CurvilinearTrajectoryError(recoTrack->covariance()));
     TsosPath recoTsosPath = TsosPath();
 
-    bool recoPropagationGood = propagateToSurface(recoFTS, recoTsosPath, genSurface, magField,
-                                                  propagatorAlong, propagatorOpposite);
+    bool recoPropagationGood = propagateToSurface(recoFTS, recoTsosPath, genVertex, genSurface,
+                                                  magField, propagatorAlong, propagatorOpposite);
     if (recoPropagationGood) {
         recoFinalParams =
             GlobalTrajectoryParameters(recoTsosPath.first.globalPosition(),

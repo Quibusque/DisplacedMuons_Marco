@@ -690,10 +690,13 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
                 CartesianTrajectoryError recoError;
 
                 Float_t deltaR_threshold = 1000;
-
-                GenMatchResults matchResult = matchRecoTrackToGenSurface(
-                    genSurface, candidateTrack, magField, propagatorAlong, propagatorOpposite,
-                    genFinalParams, recoFinalParams, recoError, deltaR_threshold);
+                const reco::GenParticle& genParticle(prunedGen->at(i));
+                GlobalPoint genVertex = GlobalPoint(genParticle.vx() * 0.1, genParticle.vy() * 0.1,
+                                                    genParticle.vz() * 0.1);
+                GenMatchResults matchResult =
+                    matchRecoTrackToGenSurface(genSurface, genVertex, candidateTrack, magField,
+                                               propagatorAlong, propagatorOpposite, genFinalParams,
+                                               recoFinalParams, recoError, deltaR_threshold);
 
                 propagatedTrajectories[{ndmu, j}] = {genFinalParams, recoFinalParams};
                 matchResults[{ndmu, j}] = matchResult;
