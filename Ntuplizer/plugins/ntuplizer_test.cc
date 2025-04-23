@@ -684,34 +684,14 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
             }
 
             for (Int_t j = 0; j < n_goodGenMuons; j++) {
-                PropagationSurface genSurface = genPropagationResults[j].first;
-                GlobalTrajectoryParameters genFinalParams = genPropagationResults[j].second;
-                GlobalTrajectoryParameters recoFinalParams;
-                CartesianTrajectoryError recoError;
-
-                Float_t deltaR_threshold = 1000;
-
-                GenMatchResults matchResult = matchRecoTrackToGenSurface(
-                    genSurface, candidateTrack, magField, propagatorAlong, propagatorOpposite,
-                    genFinalParams, recoFinalParams, recoError, deltaR_threshold);
-
-                propagatedTrajectories[{ndmu, j}] = {genFinalParams, recoFinalParams};
-                matchResults[{ndmu, j}] = matchResult;
-                bool goodMatch = (static_cast<int>(matchResult) > 0);
-                AlgebraicVector6 chi2_vector =
-                    calculateChi2Vector(genFinalParams, recoFinalParams, recoError);
-
-                AlgebraicVector6 error_vector = AlgebraicVector6(
-                    recoError.matrix()(0, 0), recoError.matrix()(1, 1), recoError.matrix()(2, 2),
-                    recoError.matrix()(3, 3), recoError.matrix()(4, 4), recoError.matrix()(5, 5));
-                error_vectors[{ndmu, j}] = error_vector;
-                Float_t chi2 = 0;
-                for (int k = 0; k < 6; k++) {
-                    chi2 += chi2_vector[k];
-                    // fill chi2_vectors
-                    chi2_vectors[{ndmu, j}][k] = chi2_vector[k];
+                Float_t deltaR_threshold = 1.0;
+                const reco::GenParticle& genPart(prunedGen->at(goodGenMuons_indices[j]));
+                Float_t deltaR_value = reco::deltaR(genPart.momentum(), candidateTrack->momentum());
+                if (deltaR_value < deltaR_threshold) {
+                    dmu_hasGenMatch[i] = true;
+                    dmu_genMatchedIndex[i] = j;
+                    break;
                 }
-                chi2Matrix(ndmu, j) = (goodMatch) ? chi2 : 9999;
             }
 
             // Check if trigger fired:
@@ -736,119 +716,7 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
         ndmu++;
     }
     // end of loop over reco displacedMuons
-    //  -----------------------------------------------------
-    //  Gen Matching continued MUST BE OUTSIDE LOOP ON RECOS
-    //  -----------------------------------------------------
 
-    TMatrixF boolMatrix = TMatrixF(200, 200);
-    markMinimalValues(chi2Matrix, boolMatrix);
-    // Loop over true entries of bool matrix and set them to zero
-    // if the corresponding chi2Matrix element is 9999
-    for (int i = 0; i < chi2Matrix.GetNrows(); i++) {
-        for (int j = 0; j < chi2Matrix.GetNcols(); j++) {
-            if (chi2Matrix(i, j) == 9999) {
-                boolMatrix(i, j) = 0;
-            }
-        }
-    }
-
-    // Set dmu_hasGenMatch and dmu_genMatchedIndex
-    for (unsigned int i = 0; i < dmuons->size(); i++) {
-        for (Int_t j = 0; j < n_goodGenMuons; j++) {
-            if (boolMatrix(i, j) == 1.0) {
-                dmu_hasGenMatch[i] = true;
-                dmu_genMatchedIndex[i] = j;
-                dmu_chi2[i] = chi2Matrix(i, j);
-                dmu_chi2_x[i] = chi2_vectors[{i, j}][0];
-                dmu_chi2_y[i] = chi2_vectors[{i, j}][1];
-                dmu_chi2_z[i] = chi2_vectors[{i, j}][2];
-                dmu_chi2_px[i] = chi2_vectors[{i, j}][3];
-                dmu_chi2_py[i] = chi2_vectors[{i, j}][4];
-                dmu_chi2_pz[i] = chi2_vectors[{i, j}][5];
-
-                dmu_reco_final_x_err[i] = error_vectors[{i, j}][0];
-                dmu_reco_final_y_err[i] = error_vectors[{i, j}][1];
-                dmu_reco_final_z_err[i] = error_vectors[{i, j}][2];
-                dmu_reco_final_px_err[i] = error_vectors[{i, j}][3];
-                dmu_reco_final_py_err[i] = error_vectors[{i, j}][4];
-                dmu_reco_final_pz_err[i] = error_vectors[{i, j}][5];
-            }
-        }
-    }
-    // Assign residuals
-    for (unsigned int i = 0; i < dmuons->size(); i++) {
-        int genMuonIndex = dmu_genMatchedIndex[i];
-        // Check arrays out of bounds
-        if (!(genMuonIndex >= 0 && genMuonIndex < n_goodGenMuons)) {
-            std::cout << "Are you sure you are using indices right? Attempt to access genMuonIndex "
-                      << genMuonIndex << " in array of size " << n_goodGenMuons << std::endl;
-            continue;
-        }
-
-        // Propagated trajectories
-        GlobalTrajectoryParameters genFinalParams = propagatedTrajectories[{i, genMuonIndex}].first;
-        GlobalTrajectoryParameters recoFinalParams =
-            propagatedTrajectories[{i, genMuonIndex}].second;
-        GenMatchResults matchResult = matchResults[{i, genMuonIndex}];
-        bool goodMatch = (static_cast<int>(matchResult) > 0);
-        const reco::GenParticle& genPart(prunedGen->at(goodGenMuons_indices[genMuonIndex]));
-        GlobalPoint genInitialVertex =
-            GlobalPoint(genPart.vx() * 0.1, genPart.vy() * 0.1, genPart.vz() * 0.1);
-        GlobalVector genInitialMomentum = GlobalVector(genPart.px(), genPart.py(), genPart.pz());
-
-        GlobalPoint recoFinalVertex = recoFinalParams.position();
-        GlobalVector recoFinalMomentum = recoFinalParams.momentum();
-        GlobalPoint genFinalVertex = genFinalParams.position();
-        GlobalVector genFinalMomentum = genFinalParams.momentum();
-
-        if (!goodMatch) {
-            dmu_reco_final_r[i] = 9999;
-            dmu_reco_final_theta[i] = 9999;
-            dmu_reco_final_phi[i] = 9999;
-            dmu_reco_final_p_r[i] = 9999;
-            dmu_reco_final_p_theta[i] = 9999;
-            dmu_reco_final_p_phi[i] = 9999;
-
-            dmu_gen_initial_r[i] = 9999;
-            dmu_gen_initial_theta[i] = 9999;
-            dmu_gen_initial_phi[i] = 9999;
-            dmu_gen_initial_p_r[i] = 9999;
-            dmu_gen_initial_p_theta[i] = 9999;
-            dmu_gen_initial_p_phi[i] = 9999;
-
-            dmu_gen_final_r[i] = 9999;
-            dmu_gen_final_theta[i] = 9999;
-            dmu_gen_final_phi[i] = 9999;
-            dmu_gen_final_p_r[i] = 9999;
-            dmu_gen_final_p_theta[i] = 9999;
-            dmu_gen_final_p_phi[i] = 9999;
-
-            dmu_propagationSurface[i] = static_cast<Int_t>(matchResult);
-        } else {
-            dmu_reco_final_r[i] = recoFinalVertex.perp();
-            dmu_reco_final_theta[i] = recoFinalVertex.theta();
-            dmu_reco_final_phi[i] = recoFinalVertex.phi();
-            dmu_reco_final_p_r[i] = recoFinalMomentum.perp();
-            dmu_reco_final_p_theta[i] = recoFinalMomentum.theta();
-            dmu_reco_final_p_phi[i] = recoFinalMomentum.phi();
-
-            dmu_gen_initial_r[i] = genInitialVertex.perp();
-            dmu_gen_initial_theta[i] = genInitialVertex.theta();
-            dmu_gen_initial_phi[i] = genInitialVertex.phi();
-            dmu_gen_initial_p_r[i] = genInitialMomentum.perp();
-            dmu_gen_initial_p_theta[i] = genInitialMomentum.theta();
-            dmu_gen_initial_p_phi[i] = genInitialMomentum.phi();
-
-            dmu_gen_final_r[i] = genFinalVertex.perp();
-            dmu_gen_final_theta[i] = genFinalVertex.theta();
-            dmu_gen_final_phi[i] = genFinalVertex.phi();
-            dmu_gen_final_p_r[i] = genFinalMomentum.perp();
-            dmu_gen_final_p_theta[i] = genFinalMomentum.theta();
-            dmu_gen_final_p_phi[i] = genFinalMomentum.phi();
-
-            dmu_propagationSurface[i] = static_cast<Int_t>(matchResult);
-        }
-    }
     //-> Fill tree
     tree_out->Fill();
 }
