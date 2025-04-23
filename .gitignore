@@ -5,3 +5,4 @@ Ntuplizer/test/crab.log
 **/*.root
 **/*.log
 .vscode/
+Ntuplizer/condor_logs/
