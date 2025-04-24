@@ -487,7 +487,7 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
     ndmu = 0;
     std::map<std::pair<int, int>, std::pair<GlobalTrajectoryParameters, GlobalTrajectoryParameters>>
         propagatedTrajectories;
-    TMatrixF chi2Matrix = TMatrixF(dmuons->size(), ngenmu);
+    TMatrixF deltaRMatrix = TMatrixF(dmuons->size(), ngenmu);
     std::map<std::pair<int, int>, AlgebraicVector6> error_vectors;
     std::map<std::pair<int, int>, AlgebraicVector6> chi2_vectors;
     std::map<std::pair<int, int>, GenMatchResults> matchResults;
@@ -562,7 +562,7 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
 
 
             for (int j = 0; j < ngenmu; j++) {
-                chi2Matrix(ndmu, j) = 9999;
+                deltaRMatrix(ndmu, j) = 9999;
                 matchResults[{ndmu, j}] = GenMatchResults::NONE;
                 chi2_vectors[{ndmu, j}] = AlgebraicVector6(9999, 9999, 9999, 9999, 9999, 9999);
                 error_vectors[{ndmu, j}] = AlgebraicVector6(9999, 9999, 9999, 9999, 9999, 9999);
@@ -589,7 +589,7 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
                 GlobalTrajectoryParameters recoFinalParams;
                 CartesianTrajectoryError recoError;
 
-                Float_t deltaR_threshold = 1000;
+                Float_t deltaR_threshold = 0.5;
 
                 GenMatchResults matchResult = matchRecoTrackToGenSurface(
                     genSurface, candidateTrack, magField, propagatorAlong, propagatorOpposite,
@@ -611,7 +611,8 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
                     // fill chi2_vectors
                     chi2_vectors[{ndmu, j}][k] = chi2_vector[k];
                 }
-                chi2Matrix(ndmu, j) = (goodMatch) ? chi2 : 9999;
+                Float_t deltaR_value = reco::deltaR(genFinalParams.momentum(), recoFinalParams.momentum());
+                deltaRMatrix(ndmu, j) = (goodMatch) ? deltaR_value : 9999;
             }
 
             // Check if trigger fired:
@@ -642,15 +643,15 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
     //  -----------------------------------------------------
 
     // dmuons->size() is larger than ndmu
-    // resize the chi2Matrix to ndmu,ngenmu size
-    chi2Matrix.ResizeTo(ndmu, ngenmu);
+    // resize the deltaRMatrix to ndmu,ngenmu size
+    deltaRMatrix.ResizeTo(ndmu, ngenmu);
     TMatrixF boolMatrix = TMatrixF(200, 200);
-    markUniqueBestMatches(chi2Matrix, boolMatrix);
+    markUniqueBestMatches(deltaRMatrix, boolMatrix);
     // additional safety step: in principle 9999 could be the
     // minimal value, but it should not be considered
     for (int i = 0; i < ndmu; i++) {
         for (int j = 0; j < ngenmu; j++) {
-            if (chi2Matrix(i, j) == 9999) {
+            if (deltaRMatrix(i, j) == 9999) {
                 boolMatrix(i, j) = 0;
             }
         }
@@ -675,13 +676,17 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
                 dmu_propagationSurface[i] = static_cast<Int_t>(matchResult);
                 genmu_kindOfMatching[j] = static_cast<Int_t>(matchResult);
 
-                dmu_chi2[i] = chi2Matrix(i, j);
+                Float_t chi2 = 0.;
                 dmu_chi2_x[i] = chi2_vectors[{i, j}][0];
                 dmu_chi2_y[i] = chi2_vectors[{i, j}][1];
                 dmu_chi2_z[i] = chi2_vectors[{i, j}][2];
                 dmu_chi2_px[i] = chi2_vectors[{i, j}][3];
                 dmu_chi2_py[i] = chi2_vectors[{i, j}][4];
                 dmu_chi2_pz[i] = chi2_vectors[{i, j}][5];
+                for (int k = 0; k < 6; k++) {
+                    chi2 += chi2_vectors[{i, j}][k];
+                }
+                dmu_chi2[i] = chi2;
 
                 dmu_reco_final_x_err[i] = error_vectors[{i, j}][0];
                 dmu_reco_final_y_err[i] = error_vectors[{i, j}][1];
