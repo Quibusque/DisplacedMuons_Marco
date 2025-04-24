@@ -14,6 +14,55 @@ bool hasMotherWithPdgId(const reco::Candidate* particle, int pdgId) {
     return false;
 }
 
+void markUniqueBestMatches(const TMatrixF& matrix, TMatrixF& boolMatrix) {
+    unsigned int nrows = matrix.GetNrows();
+    unsigned int ncols = matrix.GetNcols();
+
+    // Initialize the boolean matrix with false values
+    boolMatrix.ResizeTo(nrows, ncols);
+    boolMatrix.Zero();
+
+    // Find the minimal value in each column and set it to true in the boolean matrix
+    for (unsigned int col = 0; col < ncols; ++col) {
+        float minVal = std::numeric_limits<float>::infinity();
+        int minRow = -1;
+        for (unsigned int row = 0; row < nrows; ++row) {
+            if (matrix(row, col) < minVal) {
+                minVal = matrix(row, col);
+                minRow = row;
+            }
+        }
+        if (minRow != -1) {
+            boolMatrix(minRow, col) = 1.0;
+        }
+    }
+
+    // If a row has more than one true value keep the lowest one and set the others to false
+    for (unsigned int row = 0; row < nrows; ++row) {
+        std::vector<unsigned int> trueCols;
+        for (unsigned int col = 0; col < ncols; ++col) {
+            if (boolMatrix(row, col) == 1.0) {
+                trueCols.push_back(col);
+            }
+        }
+        if (trueCols.size() > 1) {
+            float minVal = std::numeric_limits<float>::infinity();
+            unsigned int minCol = -1;
+            for (unsigned int col : trueCols) {
+                if (matrix(row, col) < minVal) {
+                    minVal = matrix(row, col);
+                    minCol = col;
+                }
+            }
+            for (unsigned int col : trueCols) {
+                if (col != minCol) {
+                    boolMatrix(row, col) = 0.0;
+                }
+            }
+        }
+    }
+}
+
 GenMatchResults matchRecoTrackToGenSurface(
     const PropagationSurface genSurface, const reco::Track* recoTrack,
     const MagneticField* magField, const Propagator* propagatorAlong,
