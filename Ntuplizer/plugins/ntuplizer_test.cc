@@ -764,6 +764,9 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
             if (boolMatrix(i, j) == 1.0) {
                 dmu_hasGenMatch[i] = true;
                 dmu_genMatchedIndex[i] = j;
+                GenMatchResults matchResult = matchResults[{i, j}];
+                dmu_propagationSurface[i] = static_cast<Int_t>(matchResult);
+
                 dmu_chi2[i] = chi2Matrix(i, j);
                 dmu_chi2_x[i] = chi2_vectors[{i, j}][0];
                 dmu_chi2_y[i] = chi2_vectors[{i, j}][1];
@@ -781,7 +784,6 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
 
                 GlobalTrajectoryParameters genFinalParams = propagatedTrajectories[{i, j}].first;
                 GlobalTrajectoryParameters recoFinalParams = propagatedTrajectories[{i, j}].second;
-                GenMatchResults matchResult = matchResults[{i, j}];
                 const reco::GenParticle& genPart(prunedGen->at(goodGenMuons_indices[j]));
                 GlobalPoint genInitialVertex =
                     GlobalPoint(genPart.vx() * 0.1, genPart.vy() * 0.1, genPart.vz() * 0.1);
@@ -813,8 +815,23 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
                 dmu_gen_final_p_r[i] = genFinalMomentum.perp();
                 dmu_gen_final_p_theta[i] = genFinalMomentum.theta();
                 dmu_gen_final_p_phi[i] = genFinalMomentum.phi();
-
-                dmu_propagationSurface[i] = static_cast<Int_t>(matchResult);
+                break;
+            }
+        }
+        // fill dmu_propagationSurface for the failed matches
+        //  if GenMatchResults matchResult = matchResults[{i, j}] is the same value
+        //  for all j, set the dmu_propagationSurface to that value
+        if (!dmu_hasGenMatch[i] && n_goodGenMuons > 0) {
+            Int_t first = static_cast<Int_t>(matchResults[{i, 0}]);
+            bool all_same = true;
+            for (Int_t j = 1; j < n_goodGenMuons; j++) {
+                if (static_cast<Int_t>(matchResults[{i, j}]) != first) {
+                    all_same = false;
+                    break;
+                }
+            }
+            if (all_same) {
+                dmu_propagationSurface[i] = first;
             }
         }
     }
