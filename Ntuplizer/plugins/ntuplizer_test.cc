@@ -821,7 +821,8 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
         // fill dmu_propagationSurface for the failed matches
         //  if GenMatchResults matchResult = matchResults[{i, j}] is the same value
         //  for all j, set the dmu_propagationSurface to that value
-        if (!dmu_hasGenMatch[i] && n_goodGenMuons > 0) {
+        if (!dmu_hasGenMatch[i] && n_goodGenMuons > 0 &&
+            (static_cast<Int_t>(matchResults[{i, 0}]) < 0)) {
             Int_t first = static_cast<Int_t>(matchResults[{i, 0}]);
             bool all_same = true;
             for (Int_t j = 1; j < n_goodGenMuons; j++) {
