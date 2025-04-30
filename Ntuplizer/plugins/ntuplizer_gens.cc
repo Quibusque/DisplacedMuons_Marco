@@ -294,58 +294,52 @@ void ntuplizer_gens::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
             const reco::GenParticle& genParticle(prunedGen->at(i));
             if (abs(genParticle.pdgId()) == 13 &&
                 genParticle.status() == 1) {  // Check if the particle is a muon
-                // Check if the muon has a mother with pdgId 1023
-                if (hasMotherWithPdgId(&genParticle, 1023)) {
-                    // Initial state information in genFTS
-                    GlobalTrajectoryParameters genFinalParams = GlobalTrajectoryParameters();
-                    GlobalVector genMomentum(genParticle.px(), genParticle.py(), genParticle.pz());
-                    // Gen vertices are in mm, make it cm
-                    GlobalPoint genVertex(genParticle.vx() * 0.1, genParticle.vy() * 0.1,
-                                          genParticle.vz() * 0.1);
-                    int genCharge = genParticle.charge();
-                    // Ntuple variables
-                    genmu_gen_initial_r[ngenmu] = genVertex.perp();
-                    genmu_gen_initial_z[ngenmu] = genVertex.z();
-                    genmu_gen_initial_theta[ngenmu] = genVertex.theta();
-                    genmu_gen_initial_phi[ngenmu] = genVertex.phi();
-                    genmu_gen_initial_p_r[ngenmu] = genMomentum.perp();
-                    genmu_gen_initial_p_theta[ngenmu] = genMomentum.theta();
-                    genmu_gen_initial_p_phi[ngenmu] = genMomentum.phi();
-                    genmu_gen_final_r[ngenmu] = 9999;
-                    genmu_gen_final_theta[ngenmu] = 9999;
-                    genmu_gen_final_phi[ngenmu] = 9999;
-                    genmu_gen_final_p_r[ngenmu] = 9999;
-                    genmu_gen_final_p_theta[ngenmu] = 9999;
-                    genmu_gen_final_p_phi[ngenmu] = 9999;
-                    genmu_propagationSurface[ngenmu] = -1;
-                    genmu_dsa_pt[ngenmu] = genMomentum.perp();
-                    genmu_dsa_eta[ngenmu] = genMomentum.eta();
-                    genmu_dsa_phi[ngenmu] = genMomentum.phi();
-                    genmu_dsa_charge[ngenmu] = genCharge;
-                    genmu_isDSA[ngenmu] = genParticle.isStandAloneMuon();
-                    genmu_isDGL[ngenmu] = genParticle.isGlobalMuon();
-                    genmu_isDTK[ngenmu] = genParticle.isTrackerMuon();
-                    FreeTrajectoryState genFTS(genVertex, genMomentum, genCharge, magField);
-                    // final state information in genFinalParams
-                    PropagationSurface genSurface = findAndPropagateToOptimalSurface(
-                        genFTS, genFinalParams, magField, propagatorAlong, propagatorOpposite);
+                // Initial state information in genFTS
+                GlobalTrajectoryParameters genFinalParams = GlobalTrajectoryParameters();
+                GlobalVector genMomentum(genParticle.px(), genParticle.py(), genParticle.pz());
+                // Gen vertices are in cm and that's okay
+                GlobalPoint genVertex(genParticle.vx(), genParticle.vy(), genParticle.vz());
+                int genCharge = genParticle.charge();
+                // Ntuple variables
+                genmu_gen_initial_r[ngenmu] = genVertex.perp();
+                genmu_gen_initial_z[ngenmu] = genVertex.z();
+                genmu_gen_initial_theta[ngenmu] = genVertex.theta();
+                genmu_gen_initial_phi[ngenmu] = genVertex.phi();
+                genmu_gen_initial_p_r[ngenmu] = genMomentum.perp();
+                genmu_gen_initial_p_theta[ngenmu] = genMomentum.theta();
+                genmu_gen_initial_p_phi[ngenmu] = genMomentum.phi();
+                genmu_gen_final_r[ngenmu] = 9999;
+                genmu_gen_final_theta[ngenmu] = 9999;
+                genmu_gen_final_phi[ngenmu] = 9999;
+                genmu_gen_final_p_r[ngenmu] = 9999;
+                genmu_gen_final_p_theta[ngenmu] = 9999;
+                genmu_gen_final_p_phi[ngenmu] = 9999;
+                genmu_propagationSurface[ngenmu] = -1;
+                genmu_dsa_pt[ngenmu] = genMomentum.perp();
+                genmu_dsa_eta[ngenmu] = genMomentum.eta();
+                genmu_dsa_phi[ngenmu] = genMomentum.phi();
+                genmu_dsa_charge[ngenmu] = genCharge;
+                genmu_isDSA[ngenmu] = genParticle.isStandAloneMuon();
+                genmu_isDGL[ngenmu] = genParticle.isGlobalMuon();
+                genmu_isDTK[ngenmu] = genParticle.isTrackerMuon();
+                FreeTrajectoryState genFTS(genVertex, genMomentum, genCharge, magField);
+                // final state information in genFinalParams
+                PropagationSurface genSurface = findAndPropagateToOptimalSurface(
+                    genFTS, genFinalParams, magField, propagatorAlong, propagatorOpposite);
 
-                    bool goodMatch = (static_cast<int>(genSurface.genMatchResult) > 0);
-                    if (goodMatch) {
-                        genFinalParams = GlobalTrajectoryParameters(genFinalParams.position(),
-                                                                    genFinalParams.momentum(),
-                                                                    genCharge, magField);
-                        genmu_gen_final_r[ngenmu] = genFinalParams.position().perp();
-                        genmu_gen_final_theta[ngenmu] = genFinalParams.position().theta();
-                        genmu_gen_final_phi[ngenmu] = genFinalParams.position().phi();
-                        genmu_gen_final_p_r[ngenmu] = genFinalParams.momentum().perp();
-                        genmu_gen_final_p_theta[ngenmu] = genFinalParams.momentum().theta();
-                        genmu_gen_final_p_phi[ngenmu] = genFinalParams.momentum().phi();
-                    }
-                    genmu_propagationSurface[ngenmu] =
-                        static_cast<Int_t>(genSurface.genMatchResult);
-                    ngenmu++;
+                bool goodMatch = (static_cast<int>(genSurface.genMatchResult) > 0);
+                if (goodMatch) {
+                    genFinalParams = GlobalTrajectoryParameters(
+                        genFinalParams.position(), genFinalParams.momentum(), genCharge, magField);
+                    genmu_gen_final_r[ngenmu] = genFinalParams.position().perp();
+                    genmu_gen_final_theta[ngenmu] = genFinalParams.position().theta();
+                    genmu_gen_final_phi[ngenmu] = genFinalParams.position().phi();
+                    genmu_gen_final_p_r[ngenmu] = genFinalParams.momentum().perp();
+                    genmu_gen_final_p_theta[ngenmu] = genFinalParams.momentum().theta();
+                    genmu_gen_final_p_phi[ngenmu] = genFinalParams.momentum().phi();
                 }
+                genmu_propagationSurface[ngenmu] = static_cast<Int_t>(genSurface.genMatchResult);
+                ngenmu++;
             }
         }
     }

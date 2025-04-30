@@ -432,32 +432,30 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
             const reco::GenParticle& genParticle(prunedGen->at(i));
             if (abs(genParticle.pdgId()) == 13 &&
                 genParticle.status() == 1) {  // Check if the particle is a muon
-                // Check if the muon has a mother with pdgId 1023
-                if (hasMotherWithPdgId(&genParticle, 1023)) {
+                                              // Check if the muon has a mother with pdgId 1023
 
-                    // ---------------------------------------------------------
-                    // Propagate the gens to the surface for later gen matching
-                    // ---------------------------------------------------------
+                // ---------------------------------------------------------
+                // Propagate the gens to the surface for later gen matching
+                // ---------------------------------------------------------
 
-                    // Initial state information in genFTS, final state information in
-                    // genFinalParams
-                    GlobalTrajectoryParameters genFinalParams = GlobalTrajectoryParameters();
-                    GlobalVector genMomentum(genParticle.px(), genParticle.py(), genParticle.pz());
-                    // Gen vertices are in cm and that's okay
-                    GlobalPoint genVertex(genParticle.vx(), genParticle.vy(), genParticle.vz());
-                    int genCharge = genParticle.charge();
-                    FreeTrajectoryState genFTS(genVertex, genMomentum, genCharge, magField);
+                // Initial state information in genFTS, final state information in
+                // genFinalParams
+                GlobalTrajectoryParameters genFinalParams = GlobalTrajectoryParameters();
+                GlobalVector genMomentum(genParticle.px(), genParticle.py(), genParticle.pz());
+                // Gen vertices are in cm and that's okay
+                GlobalPoint genVertex(genParticle.vx(), genParticle.vy(), genParticle.vz());
+                int genCharge = genParticle.charge();
+                FreeTrajectoryState genFTS(genVertex, genMomentum, genCharge, magField);
 
-                    PropagationSurface genSurface = findAndPropagateToOptimalSurface(
-                        genFTS, genFinalParams, magField, propagatorAlong, propagatorOpposite);
+                PropagationSurface genSurface = findAndPropagateToOptimalSurface(
+                    genFTS, genFinalParams, magField, propagatorAlong, propagatorOpposite);
 
-                    bool goodMatch = (static_cast<int>(genSurface.genMatchResult) > 0);
-                    if (goodMatch) {
-                        genFinalParams = GlobalTrajectoryParameters(genFinalParams.position(),
-                                                                    genFinalParams.momentum(),
-                                                                    genCharge, magField);
-                    }
-                    genPropagationResults[ngenmu] = std::make_pair(genSurface, genFinalParams);
+                bool goodMatch = (static_cast<int>(genSurface.genMatchResult) > 0);
+                if (goodMatch) {
+                    genFinalParams = GlobalTrajectoryParameters(
+                        genFinalParams.position(), genFinalParams.momentum(), genCharge, magField);
+                }
+                genPropagationResults[ngenmu] = std::make_pair(genSurface, genFinalParams);
 
                     if (genSurface == PropagationConstants::GEN_OUTSIDE_CMS) {
                         genmu_kindOfMatching[ngenmu] =
@@ -475,8 +473,7 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
                     genmu_initial_p_theta[ngenmu] = genMomentum.theta();
                     genmu_initial_p_phi[ngenmu] = genMomentum.phi();
 
-                    ngenmu++;
-                }
+                ngenmu++;
             }
         }
     }
@@ -560,7 +557,6 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
             dmu_reco_final_p_theta[ndmu] = 9999;
             dmu_reco_final_p_phi[ndmu] = 9999;
 
-
             for (int j = 0; j < ngenmu; j++) {
                 deltaRMatrix(ndmu, j) = 9999;
                 matchResults[{ndmu, j}] = GenMatchResults::NONE;
@@ -611,7 +607,8 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
                     // fill chi2_vectors
                     chi2_vectors[{ndmu, j}][k] = chi2_vector[k];
                 }
-                Float_t deltaR_value = reco::deltaR(genFinalParams.momentum(), recoFinalParams.momentum());
+                Float_t deltaR_value =
+                    reco::deltaR(genFinalParams.momentum(), recoFinalParams.momentum());
                 deltaRMatrix(ndmu, j) = (goodMatch) ? deltaR_value : 9999;
             }
 

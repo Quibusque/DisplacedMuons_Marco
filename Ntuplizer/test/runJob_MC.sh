@@ -20,7 +20,7 @@ end_time=$(date +%s)
 echo "Time taken: $((end_time - start_time)) seconds"
 
 # Copy the output file to the EOS output directory if it exists
-output_dir="/eos/home-m/mcrucian/SWAN_projects/DisplacedMuons/ntuples"
+output_dir="/eos/home-m/mcrucian/SWAN_projects/DisplacedMuons/muon_gun"
 if [ -f "${out_file}" ]; then
     cp ${out_file} ${output_dir}
     echo "${out_file} copied to ${output_dir}"

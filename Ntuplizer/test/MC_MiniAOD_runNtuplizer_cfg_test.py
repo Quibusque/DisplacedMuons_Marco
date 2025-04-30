@@ -10,7 +10,7 @@ parser.add_argument('-input_dir', type=str, help='Directory that contains all th
 parser.add_argument('-out_file', type=str, help='Output file name')
 args = parser.parse_args()
 
-main_dir = "/eos/home-m/mcrucian/datasets/displaced_muons/"
+main_dir = "/eos/home-m/mcrucian/datasets/displaced_gun/"
 my_dir = os.path.join(main_dir, args.input_dir)
 
 
