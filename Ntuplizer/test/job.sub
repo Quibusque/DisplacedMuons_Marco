@@ -10,11 +10,11 @@ log    = ../condor_logs/job_$(Cluster).log
 # Set executable for the first set
 executable = runJob_MC.sh
 
-arguments = HTo2ZdTo2mu2x_MZd-40_Epsilon-2e-08 MC_Ntuples_MZd-40_Epsilon-2e-08_test.root
+arguments = DisplacedMu-Pt-2To10 DisplacedMu-Pt-2To10.root
 queue 1
-arguments = HTo2ZdTo2mu2x_MZd-40_Epsilon-8e-08 MC_Ntuples_MZd-40_Epsilon-8e-08_test.root
+arguments = DisplacedMu-Pt-10To30 DisplacedMu-Pt-10To30.root
 queue 1
-arguments = HTo2ZdTo2mu2x_MZd-40_Epsilon-5e-09 MC_Ntuples_MZd-40_Epsilon-5e-09_test.root
+arguments = DisplacedMu-Pt-30To100 DisplacedMu-Pt-30To100.root
 queue 1
 # Now change the executable for the Cosmics job
 # executable = runJob_cosmics.sh
