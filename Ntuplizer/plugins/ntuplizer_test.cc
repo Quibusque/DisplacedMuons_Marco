@@ -771,10 +771,6 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
                 GlobalTrajectoryParameters genFinalParams = propagatedTrajectories[{i, j}].first;
                 GlobalTrajectoryParameters recoFinalParams = propagatedTrajectories[{i, j}].second;
                 const reco::GenParticle& genPart(prunedGen->at(goodGenMuons_indices[j]));
-                GlobalPoint genInitialVertex =
-                    GlobalPoint(genPart.vx() * 0.1, genPart.vy() * 0.1, genPart.vz() * 0.1);
-                GlobalVector genInitialMomentum =
-                    GlobalVector(genPart.px(), genPart.py(), genPart.pz());
 
                 GlobalPoint recoFinalVertex = recoFinalParams.position();
                 GlobalVector recoFinalMomentum = recoFinalParams.momentum();
