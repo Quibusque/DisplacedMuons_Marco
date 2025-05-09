@@ -127,6 +127,22 @@ class ntuplizer_test : public edm::one::EDAnalyzer<edm::one::SharedResources> {
     Float_t dmu_t0_OutIn[200] = {0.};
 
     // Variables for gen matching
+    Int_t ngenmu = 0;
+    Int_t genmu_propagationSurface[10] = {-1};
+    Int_t genmu_charge[10] = {0};
+    Float_t genmu_pt[10] = {0};
+    Float_t genmu_initial_r[10] = {9999.};
+    Float_t genmu_initial_theta[10] = {9999.};
+    Float_t genmu_initial_phi[10] = {9999.};
+    Float_t genmu_final_r[10] = {9999.};
+    Float_t genmu_final_theta[10] = {9999.};
+    Float_t genmu_final_phi[10] = {9999.};
+    Float_t genmu_initial_p_r[10] = {9999.};
+    Float_t genmu_initial_p_theta[10] = {9999.};
+    Float_t genmu_initial_p_phi[10] = {9999.};
+    Float_t genmu_final_p_r[10] = {9999.};
+    Float_t genmu_final_p_theta[10] = {9999.};
+    Float_t genmu_final_p_phi[10] = {9999.};
     bool dmu_hasGenMatch[200] = {false};
     Int_t dmu_genMatchedIndex[200] = {0};
     Float_t dmu_reco_initial_r[200] = {9999.};
@@ -148,18 +164,6 @@ class ntuplizer_test : public edm::one::EDAnalyzer<edm::one::SharedResources> {
     Float_t dmu_reco_final_py_err[200] = {9999.};
     Float_t dmu_reco_final_pz_err[200] = {9999.};
 
-    Float_t dmu_gen_initial_r[200] = {9999.};
-    Float_t dmu_gen_initial_theta[200] = {9999.};
-    Float_t dmu_gen_initial_phi[200] = {9999.};
-    Float_t dmu_gen_final_r[200] = {9999.};
-    Float_t dmu_gen_final_theta[200] = {9999.};
-    Float_t dmu_gen_final_phi[200] = {9999.};
-    Float_t dmu_gen_initial_p_r[200] = {9999.};
-    Float_t dmu_gen_initial_p_theta[200] = {9999.};
-    Float_t dmu_gen_initial_p_phi[200] = {9999.};
-    Float_t dmu_gen_final_p_r[200] = {9999.};
-    Float_t dmu_gen_final_p_theta[200] = {9999.};
-    Float_t dmu_gen_final_p_phi[200] = {9999.};
     Int_t dmu_propagationSurface[200] = {-1};
     Float_t dmu_chi2[200] = {9999.};
     Float_t dmu_chi2_x[200] = {9999.};
@@ -296,6 +300,11 @@ void ntuplizer_test::beginJob() {
 
     // Gen Matching branches
     if (isMCSignal) {
+        tree_out->Branch("ngenmu", &ngenmu, "ngenmu/I");
+        tree_out->Branch("genmu_propagationSurface", genmu_propagationSurface,
+                         "genmu_propagationSurface[ngenmu]/I");
+        tree_out->Branch("genmu_charge", genmu_charge, "genmu_charge[ngenmu]/I");
+        tree_out->Branch("genmu_pt", genmu_pt, "genmu_pt[ngenmu]/F");
         tree_out->Branch("dmu_hasGenMatch", dmu_hasGenMatch, "dmu_hasGenMatch[ndmu]/O");
         tree_out->Branch("dmu_genMatchedIndex", dmu_genMatchedIndex, "dmu_genMatchedIndex[ndmu]/I");
         tree_out->Branch("dmu_reco_initial_r", dmu_reco_initial_r, "dmu_reco_initial_r[ndmu]/F");
@@ -318,23 +327,22 @@ void ntuplizer_test::beginJob() {
                          "dmu_reco_final_p_theta[ndmu]/F");
         tree_out->Branch("dmu_reco_final_p_phi", dmu_reco_final_p_phi,
                          "dmu_reco_final_p_phi[ndmu]/F");
-
-        tree_out->Branch("dmu_gen_initial_r", dmu_gen_initial_r, "dmu_gen_initial_r[ndmu]/F");
-        tree_out->Branch("dmu_gen_initial_theta", dmu_gen_initial_theta,
-                         "dmu_gen_initial_theta[ndmu]/F");
-        tree_out->Branch("dmu_gen_initial_phi", dmu_gen_initial_phi, "dmu_gen_initial_phi[ndmu]/F");
-        tree_out->Branch("dmu_gen_final_r", dmu_gen_final_r, "dmu_gen_final_r[ndmu]/F");
-        tree_out->Branch("dmu_gen_final_theta", dmu_gen_final_theta, "dmu_gen_final_theta[ndmu]/F");
-        tree_out->Branch("dmu_gen_final_phi", dmu_gen_final_phi, "dmu_gen_final_phi[ndmu]/F");
-        tree_out->Branch("dmu_gen_initial_p_r", dmu_gen_initial_p_r, "dmu_gen_initial_p_r[ndmu]/F");
-        tree_out->Branch("dmu_gen_initial_p_theta", dmu_gen_initial_p_theta,
-                         "dmu_gen_initial_p_theta[ndmu]/F");
-        tree_out->Branch("dmu_gen_initial_p_phi", dmu_gen_initial_p_phi,
-                         "dmu_gen_initial_p_phi[ndmu]/F");
-        tree_out->Branch("dmu_gen_final_p_r", dmu_gen_final_p_r, "dmu_gen_final_p_r[ndmu]/F");
-        tree_out->Branch("dmu_gen_final_p_theta", dmu_gen_final_p_theta,
-                         "dmu_gen_final_p_theta[ndmu]/F");
-        tree_out->Branch("dmu_gen_final_p_phi", dmu_gen_final_p_phi, "dmu_gen_final_p_phi[ndmu]/F");
+        tree_out->Branch("genmu_initial_r", genmu_initial_r, "genmu_initial_r[ngenmu]/F");
+        tree_out->Branch("genmu_initial_theta", genmu_initial_theta,
+                         "genmu_initial_theta[ngenmu]/F");
+        tree_out->Branch("genmu_initial_phi", genmu_initial_phi, "genmu_initial_phi[ngenmu]/F");
+        tree_out->Branch("genmu_final_r", genmu_final_r, "genmu_final_r[ngenmu]/F");
+        tree_out->Branch("genmu_final_theta", genmu_final_theta, "genmu_final_theta[ngenmu]/F");
+        tree_out->Branch("genmu_final_phi", genmu_final_phi, "genmu_final_phi[ngenmu]/F");
+        tree_out->Branch("genmu_initial_p_r", genmu_initial_p_r, "genmu_initial_p_r[ngenmu]/F");
+        tree_out->Branch("genmu_initial_p_theta", genmu_initial_p_theta,
+                         "genmu_initial_p_theta[ngenmu]/F");
+        tree_out->Branch("genmu_initial_p_phi", genmu_initial_p_phi,
+                         "genmu_initial_p_phi[ngenmu]/F");
+        tree_out->Branch("genmu_final_p_r", genmu_final_p_r, "genmu_final_p_r[ngenmu]/F");
+        tree_out->Branch("genmu_final_p_theta", genmu_final_p_theta,
+                         "genmu_final_p_theta[ngenmu]/F");
+        tree_out->Branch("genmu_final_p_phi", genmu_final_p_phi, "genmu_final_p_phi[ngenmu]/F");
         tree_out->Branch("dmu_propagationSurface", dmu_propagationSurface,
                          "dmu_propagationSurface[ndmu]/I");
         tree_out->Branch("dmu_chi2", dmu_chi2, "dmu_chi2[ndmu]/F");
@@ -414,9 +422,8 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
     // ----------------------------------
     // genParticles Collection
     // ----------------------------------
-    Int_t nprugenmu = 0;
     int goodGenMuons_indices[10] = {-1};
-    int n_goodGenMuons = 0;
+    ngenmu = 0;
     std::pair<PropagationSurface, GlobalTrajectoryParameters> genPropagationResults[10];
     if (isMCSignal) {
         for (unsigned int i = 0; i < prunedGen->size(); i++) {
@@ -425,7 +432,7 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
                 genParticle.status() == 1) {  // Check if the particle is a muon
                 // Check if the muon has a mother with pdgId 1023
                 if (hasMotherWithPdgId(&genParticle, 1023)) {
-                    goodGenMuons_indices[n_goodGenMuons] = i;
+                    goodGenMuons_indices[ngenmu] = i;
 
                     // ---------------------------------------------------------
                     // Propagate the gens to the surface for later gen matching
@@ -450,12 +457,26 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
                                                                     genFinalParams.momentum(),
                                                                     genCharge, magField);
                     }
-                    genPropagationResults[n_goodGenMuons] =
-                        std::make_pair(genSurface, genFinalParams);
-                    n_goodGenMuons++;
+                    genPropagationResults[ngenmu] = std::make_pair(genSurface, genFinalParams);
+
+                    if (genSurface == PropagationConstants::GEN_OUTSIDE_CMS) {
+                        genmu_propagationSurface[ngenmu] =
+                            static_cast<int>(genSurface.genMatchResult);
+                    } else {
+                        genmu_propagationSurface[ngenmu] = -1;
+                    }
+                    genmu_pt[ngenmu] = genParticle.pt();
+                    genmu_charge[ngenmu] = genCharge;
+                    genmu_initial_r[ngenmu] = genVertex.Perp();
+                    genmu_initial_theta[ngenmu] = genVertex.Theta();
+                    genmu_initial_phi[ngenmu] = genVertex.Phi();
+                    genmu_initial_p_r[ngenmu] = genMomentum.Perp();
+                    genmu_initial_p_theta[ngenmu] = genMomentum.Theta();
+                    genmu_initial_p_phi[ngenmu] = genMomentum.Phi();
+
+                    ngenmu++;
                 }
             }
-            nprugenmu++;
         }
     }
 
@@ -465,7 +486,7 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
     ndmu = 0;
     std::map<std::pair<int, int>, std::pair<GlobalTrajectoryParameters, GlobalTrajectoryParameters>>
         propagatedTrajectories;
-    TMatrixF chi2Matrix = TMatrixF(dmuons->size(), n_goodGenMuons);
+    TMatrixF chi2Matrix = TMatrixF(dmuons->size(), ngenmu);
     std::map<std::pair<int, int>, AlgebraicVector6> error_vectors;
     std::map<std::pair<int, int>, AlgebraicVector6> chi2_vectors;
     std::map<std::pair<int, int>, GenMatchResults> matchResults;
@@ -538,20 +559,8 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
             dmu_reco_final_p_theta[ndmu] = 9999;
             dmu_reco_final_p_phi[ndmu] = 9999;
 
-            dmu_gen_initial_r[ndmu] = 9999;
-            dmu_gen_initial_theta[ndmu] = 9999;
-            dmu_gen_initial_phi[ndmu] = 9999;
-            dmu_gen_initial_p_r[ndmu] = 9999;
-            dmu_gen_initial_p_theta[ndmu] = 9999;
-            dmu_gen_initial_p_phi[ndmu] = 9999;
-            dmu_gen_final_r[ndmu] = 9999;
-            dmu_gen_final_theta[ndmu] = 9999;
-            dmu_gen_final_phi[ndmu] = 9999;
-            dmu_gen_final_p_r[ndmu] = 9999;
-            dmu_gen_final_p_theta[ndmu] = 9999;
-            dmu_gen_final_p_phi[ndmu] = 9999;
 
-            for (int j = 0; j < n_goodGenMuons; j++) {
+            for (int j = 0; j < ngenmu; j++) {
                 chi2Matrix(ndmu, j) = 9999;
                 matchResults[{ndmu, j}] = GenMatchResults::NONE;
                 chi2_vectors[{ndmu, j}] = AlgebraicVector6(9999, 9999, 9999, 9999, 9999, 9999);
@@ -597,20 +606,8 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
             dmu_reco_final_p_theta[ndmu] = 9999;
             dmu_reco_final_p_phi[ndmu] = 9999;
 
-            dmu_gen_initial_r[ndmu] = 9999;
-            dmu_gen_initial_theta[ndmu] = 9999;
-            dmu_gen_initial_phi[ndmu] = 9999;
-            dmu_gen_initial_p_r[ndmu] = 9999;
-            dmu_gen_initial_p_theta[ndmu] = 9999;
-            dmu_gen_initial_p_phi[ndmu] = 9999;
-            dmu_gen_final_r[ndmu] = 9999;
-            dmu_gen_final_theta[ndmu] = 9999;
-            dmu_gen_final_phi[ndmu] = 9999;
-            dmu_gen_final_p_r[ndmu] = 9999;
-            dmu_gen_final_p_theta[ndmu] = 9999;
-            dmu_gen_final_p_phi[ndmu] = 9999;
 
-            for (int j = 0; j < n_goodGenMuons; j++) {
+            for (int j = 0; j < ngenmu; j++) {
                 chi2Matrix(ndmu, j) = 9999;
                 matchResults[{ndmu, j}] = GenMatchResults::NONE;
                 chi2_vectors[{ndmu, j}] = AlgebraicVector6(9999, 9999, 9999, 9999, 9999, 9999);
@@ -649,20 +646,8 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
             dmu_reco_final_p_theta[ndmu] = 9999;
             dmu_reco_final_p_phi[ndmu] = 9999;
 
-            dmu_gen_initial_r[ndmu] = 9999;
-            dmu_gen_initial_theta[ndmu] = 9999;
-            dmu_gen_initial_phi[ndmu] = 9999;
-            dmu_gen_initial_p_r[ndmu] = 9999;
-            dmu_gen_initial_p_theta[ndmu] = 9999;
-            dmu_gen_initial_p_phi[ndmu] = 9999;
-            dmu_gen_final_r[ndmu] = 9999;
-            dmu_gen_final_theta[ndmu] = 9999;
-            dmu_gen_final_phi[ndmu] = 9999;
-            dmu_gen_final_p_r[ndmu] = 9999;
-            dmu_gen_final_p_theta[ndmu] = 9999;
-            dmu_gen_final_p_phi[ndmu] = 9999;
 
-            for (int j = 0; j < n_goodGenMuons; j++) {
+            for (int j = 0; j < ngenmu; j++) {
                 chi2Matrix(ndmu, j) = 9999;
                 matchResults[{ndmu, j}] = GenMatchResults::NONE;
                 chi2_vectors[{ndmu, j}] = AlgebraicVector6(9999, 9999, 9999, 9999, 9999, 9999);
@@ -683,7 +668,7 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
                 continue;
             }
 
-            for (Int_t j = 0; j < n_goodGenMuons; j++) {
+            for (Int_t j = 0; j < ngenmu; j++) {
                 PropagationSurface genSurface = genPropagationResults[j].first;
                 GlobalTrajectoryParameters genFinalParams = genPropagationResults[j].second;
                 GlobalTrajectoryParameters recoFinalParams;
@@ -742,14 +727,14 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
     //  -----------------------------------------------------
 
     // dmuons->size() is larger than ndmu
-    // resize the chi2Matrix to ndmu,n_goodGenMuons size
-    chi2Matrix.ResizeTo(ndmu, n_goodGenMuons);
+    // resize the chi2Matrix to ndmu,ngenmu size
+    chi2Matrix.ResizeTo(ndmu, ngenmu);
     TMatrixF boolMatrix = TMatrixF(200, 200);
     markUniqueBestMatches(chi2Matrix, boolMatrix);
     // additional safety step: in principle 9999 could be the
     // minimal value, but it should not be considered
     for (int i = 0; i < ndmu; i++) {
-        for (int j = 0; j < n_goodGenMuons; j++) {
+        for (int j = 0; j < ngenmu; j++) {
             if (chi2Matrix(i, j) == 9999) {
                 boolMatrix(i, j) = 0;
             }
@@ -759,13 +744,14 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
     // -------------------------------------
     // Assign residuals and gen match info
     // -------------------------------------
-    for (int i = 0; i < ndmu; i++) {
-        for (Int_t j = 0; j < n_goodGenMuons; j++) {
+    for (Int_t j = 0; j < ngenmu; j++) {
+        for (int i = 0; i < ndmu; i++) {
             if (boolMatrix(i, j) == 1.0) {
                 dmu_hasGenMatch[i] = true;
                 dmu_genMatchedIndex[i] = j;
                 GenMatchResults matchResult = matchResults[{i, j}];
                 dmu_propagationSurface[i] = static_cast<Int_t>(matchResult);
+                genmu_propagationSurface[j] = static_cast<Int_t>(matchResult);
 
                 dmu_chi2[i] = chi2Matrix(i, j);
                 dmu_chi2_x[i] = chi2_vectors[{i, j}][0];
@@ -802,37 +788,31 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
                 dmu_reco_final_p_theta[i] = recoFinalMomentum.theta();
                 dmu_reco_final_p_phi[i] = recoFinalMomentum.phi();
 
-                dmu_gen_initial_r[i] = genInitialVertex.perp();
-                dmu_gen_initial_theta[i] = genInitialVertex.theta();
-                dmu_gen_initial_phi[i] = genInitialVertex.phi();
-                dmu_gen_initial_p_r[i] = genInitialMomentum.perp();
-                dmu_gen_initial_p_theta[i] = genInitialMomentum.theta();
-                dmu_gen_initial_p_phi[i] = genInitialMomentum.phi();
-
-                dmu_gen_final_r[i] = genFinalVertex.perp();
-                dmu_gen_final_theta[i] = genFinalVertex.theta();
-                dmu_gen_final_phi[i] = genFinalVertex.phi();
-                dmu_gen_final_p_r[i] = genFinalMomentum.perp();
-                dmu_gen_final_p_theta[i] = genFinalMomentum.theta();
-                dmu_gen_final_p_phi[i] = genFinalMomentum.phi();
+                genmu_final_r[j] = genFinalVertex.perp();
+                genmu_final_theta[j] = genFinalVertex.theta();
+                genmu_final_phi[j] = genFinalVertex.phi();
+                genmu_final_p_r[j] = genFinalMomentum.perp();
+                genmu_final_p_theta[j] = genFinalMomentum.theta();
+                genmu_final_p_phi[j] = genFinalMomentum.phi();
                 break;
             }
         }
-        // fill dmu_propagationSurface for the failed matches
-        //  if GenMatchResults matchResult = matchResults[{i, j}] is the same value
-        //  for all j, set the dmu_propagationSurface to that value
-        if (!dmu_hasGenMatch[i] && n_goodGenMuons > 0 &&
-            (static_cast<Int_t>(matchResults[{i, 0}]) < 0)) {
-            Int_t first = static_cast<Int_t>(matchResults[{i, 0}]);
+        // fill genmu_propagationSurface for the failed matches
+        if (genmu_propagationSurface[j] == -1 && ndmu > 0 &&
+            (static_cast<Int_t>(matchResults[{0, j}]) < 0)) {
+            Int_t first = static_cast<Int_t>(matchResults[{0, j}]);
+            if (first == -1) {
+                break;
+            }
             bool all_same = true;
-            for (Int_t j = 1; j < n_goodGenMuons; j++) {
+            for (Int_t i = 1; i < ndmu; i++) {
                 if (static_cast<Int_t>(matchResults[{i, j}]) != first) {
                     all_same = false;
                     break;
                 }
             }
             if (all_same) {
-                dmu_propagationSurface[i] = first;
+                genmu_propagationSurface[j] = first;
             }
         }
     }
