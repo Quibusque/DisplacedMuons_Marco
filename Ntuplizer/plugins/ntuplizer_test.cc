@@ -467,12 +467,12 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
                     }
                     genmu_pt[ngenmu] = genParticle.pt();
                     genmu_charge[ngenmu] = genCharge;
-                    genmu_initial_r[ngenmu] = genVertex.Perp();
-                    genmu_initial_theta[ngenmu] = genVertex.Theta();
-                    genmu_initial_phi[ngenmu] = genVertex.Phi();
-                    genmu_initial_p_r[ngenmu] = genMomentum.Perp();
-                    genmu_initial_p_theta[ngenmu] = genMomentum.Theta();
-                    genmu_initial_p_phi[ngenmu] = genMomentum.Phi();
+                    genmu_initial_r[ngenmu] = genVertex.perp();
+                    genmu_initial_theta[ngenmu] = genVertex.theta();
+                    genmu_initial_phi[ngenmu] = genVertex.phi();
+                    genmu_initial_p_r[ngenmu] = genMomentum.perp();
+                    genmu_initial_p_theta[ngenmu] = genMomentum.theta();
+                    genmu_initial_p_phi[ngenmu] = genMomentum.phi();
 
                     ngenmu++;
                 }
