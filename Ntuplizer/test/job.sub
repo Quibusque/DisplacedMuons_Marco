@@ -5,7 +5,7 @@ RequestCpus = 4
 output = ../condor_logs/job_$(Cluster)_$(Process).out
 error  = ../condor_logs/job_$(Cluster)_$(Process).err
 log    = ../condor_logs/job_$(Cluster).log
-+JobFlavour = "espresso"
++JobFlavour = "microcentury"
 
 # Set executable for the first set
 executable = runJob_MC.sh
