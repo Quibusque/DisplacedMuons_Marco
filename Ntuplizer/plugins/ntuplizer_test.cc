@@ -422,7 +422,6 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
     // ----------------------------------
     // genParticles Collection
     // ----------------------------------
-    int goodGenMuons_indices[10] = {-1};
     ngenmu = 0;
     std::pair<PropagationSurface, GlobalTrajectoryParameters> genPropagationResults[10];
     if (isMCSignal) {
@@ -432,7 +431,6 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
                 genParticle.status() == 1) {  // Check if the particle is a muon
                 // Check if the muon has a mother with pdgId 1023
                 if (hasMotherWithPdgId(&genParticle, 1023)) {
-                    goodGenMuons_indices[ngenmu] = i;
 
                     // ---------------------------------------------------------
                     // Propagate the gens to the surface for later gen matching
@@ -770,8 +768,6 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
 
                 GlobalTrajectoryParameters genFinalParams = propagatedTrajectories[{i, j}].first;
                 GlobalTrajectoryParameters recoFinalParams = propagatedTrajectories[{i, j}].second;
-                const reco::GenParticle& genPart(prunedGen->at(goodGenMuons_indices[j]));
-
                 GlobalPoint recoFinalVertex = recoFinalParams.position();
                 GlobalVector recoFinalMomentum = recoFinalParams.momentum();
                 GlobalPoint genFinalVertex = genFinalParams.position();
