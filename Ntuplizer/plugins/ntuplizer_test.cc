@@ -520,31 +520,31 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
         dmu_reco_final_pz_err[ndmu] = 9999;
 
         if (dmuon.isGlobalMuon()) {
-            const reco::Track* innerTrack = (dmuon.innerTrack()).get();
+            const reco::Track* globalTrack = (dmuon.combinedMuon()).get();
 
-            dmu_dsa_pt[ndmu] = innerTrack->pt();
-            dmu_dsa_eta[ndmu] = innerTrack->eta();
-            dmu_dsa_phi[ndmu] = innerTrack->phi();
-            dmu_dsa_ptError[ndmu] = innerTrack->ptError();
-            dmu_dsa_dxy[ndmu] = innerTrack->dxy();
-            dmu_dsa_dz[ndmu] = innerTrack->dz();
-            dmu_dsa_normalizedChi2[ndmu] = innerTrack->normalizedChi2();
-            dmu_dsa_charge[ndmu] = innerTrack->charge();
-            dmu_dsa_nMuonHits[ndmu] = innerTrack->hitPattern().numberOfMuonHits();
-            dmu_dsa_nValidMuonHits[ndmu] = innerTrack->hitPattern().numberOfValidMuonHits();
-            dmu_dsa_nValidMuonDTHits[ndmu] = innerTrack->hitPattern().numberOfValidMuonDTHits();
-            dmu_dsa_nValidMuonCSCHits[ndmu] = innerTrack->hitPattern().numberOfValidMuonCSCHits();
-            dmu_dsa_nValidMuonRPCHits[ndmu] = innerTrack->hitPattern().numberOfValidMuonRPCHits();
-            dmu_dsa_nValidStripHits[ndmu] = innerTrack->hitPattern().numberOfValidStripHits();
-            dmu_dsa_nhits[ndmu] = innerTrack->hitPattern().numberOfValidHits();
+            dmu_dsa_pt[ndmu] = globalTrack->pt();
+            dmu_dsa_eta[ndmu] = globalTrack->eta();
+            dmu_dsa_phi[ndmu] = globalTrack->phi();
+            dmu_dsa_ptError[ndmu] = globalTrack->ptError();
+            dmu_dsa_dxy[ndmu] = globalTrack->dxy();
+            dmu_dsa_dz[ndmu] = globalTrack->dz();
+            dmu_dsa_normalizedChi2[ndmu] = globalTrack->normalizedChi2();
+            dmu_dsa_charge[ndmu] = globalTrack->charge();
+            dmu_dsa_nMuonHits[ndmu] = globalTrack->hitPattern().numberOfMuonHits();
+            dmu_dsa_nValidMuonHits[ndmu] = globalTrack->hitPattern().numberOfValidMuonHits();
+            dmu_dsa_nValidMuonDTHits[ndmu] = globalTrack->hitPattern().numberOfValidMuonDTHits();
+            dmu_dsa_nValidMuonCSCHits[ndmu] = globalTrack->hitPattern().numberOfValidMuonCSCHits();
+            dmu_dsa_nValidMuonRPCHits[ndmu] = globalTrack->hitPattern().numberOfValidMuonRPCHits();
+            dmu_dsa_nValidStripHits[ndmu] = globalTrack->hitPattern().numberOfValidStripHits();
+            dmu_dsa_nhits[ndmu] = globalTrack->hitPattern().numberOfValidHits();
             dmu_dsa_dtStationsWithValidHits[ndmu] =
-                innerTrack->hitPattern().dtStationsWithValidHits();
+                globalTrack->hitPattern().dtStationsWithValidHits();
             dmu_dsa_cscStationsWithValidHits[ndmu] =
-                innerTrack->hitPattern().cscStationsWithValidHits();
+                globalTrack->hitPattern().cscStationsWithValidHits();
             TVector3 dsa_vertex = TVector3();
             TVector3 dsa_momentum = TVector3();
-            dsa_vertex.SetXYZ(innerTrack->vx(), innerTrack->vy(), innerTrack->vz());
-            dsa_momentum.SetXYZ(innerTrack->px(), innerTrack->py(), innerTrack->pz());
+            dsa_vertex.SetXYZ(globalTrack->vx(), globalTrack->vy(), globalTrack->vz());
+            dsa_momentum.SetXYZ(globalTrack->px(), globalTrack->py(), globalTrack->pz());
             // initial values for the gen matching
             dmu_reco_initial_r[ndmu] = dsa_vertex.Perp();
             dmu_reco_initial_theta[ndmu] = dsa_vertex.Theta();
