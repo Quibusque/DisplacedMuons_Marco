@@ -2,6 +2,8 @@
 #define PROPAGATION_DEFINITIONS_H
 
 enum class GenMatchResults {
+    ZERO_RECOS_FOUND = -5,
+    GEN_PROPAGATION_FAIL = -4,
     GEN_OUTSIDE_CMS = -3,
     DELTA_R_FAIL = -2,
     NONE = -1,
@@ -29,6 +31,10 @@ const PropagationSurface POS_ENDCAP = {700.0, 700.0, 0.0, GenMatchResults::POS_E
 const PropagationSurface NEG_ENDCAP = {700.0, 0.0, -700.0, GenMatchResults::NEG_ENDCAP};
 const PropagationSurface NONE = {0.0, 0.0, 0.0, GenMatchResults::NONE};
 const PropagationSurface GEN_OUTSIDE_CMS = {0.0, 0.0, 0.0, GenMatchResults::GEN_OUTSIDE_CMS};
+const PropagationSurface GEN_PROPAGATION_FAIL = {0.0, 0.0, 0.0,
+                                                 GenMatchResults::GEN_PROPAGATION_FAIL};
+const PropagationSurface ZERO_RECOS_FOUND =  {0.0, 0.0, 0.0,
+                                                 GenMatchResults::ZERO_RECOS_FOUND};
 const Float_t MAX_CMS_CYLINDER_RADIUS = 800.0;
 const Float_t MAX_CMS_Z = 1200.0;
 const Float_t MIN_CMS_Z = -1200.0;

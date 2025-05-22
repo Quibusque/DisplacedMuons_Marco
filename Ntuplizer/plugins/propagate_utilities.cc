@@ -119,7 +119,7 @@ PropagationSurface findAndPropagateToOptimalSurface(FreeTrajectoryState fts,
         return PropagationConstants::GEN_OUTSIDE_CMS;
     }
     TsosPath tsosPath = TsosPath();
-    PropagationSurface optimalSurface = PropagationConstants::NONE;
+    PropagationSurface optimalSurface = PropagationConstants::GEN_PROPAGATION_FAIL;
 
     // First try with propagating to cylinder
     Float_t radius = PropagationConstants::CYLINDER.radius;

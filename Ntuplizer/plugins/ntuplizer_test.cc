@@ -517,54 +517,7 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
         dmu_reco_final_py_err[ndmu] = 9999;
         dmu_reco_final_pz_err[ndmu] = 9999;
 
-        if (dmuon.isGlobalMuon()) {
-            const reco::Track* globalTrack = (dmuon.combinedMuon()).get();
-
-            dmu_dsa_pt[ndmu] = globalTrack->pt();
-            dmu_dsa_eta[ndmu] = globalTrack->eta();
-            dmu_dsa_phi[ndmu] = globalTrack->phi();
-            dmu_dsa_ptError[ndmu] = globalTrack->ptError();
-            dmu_dsa_dxy[ndmu] = globalTrack->dxy();
-            dmu_dsa_dz[ndmu] = globalTrack->dz();
-            dmu_dsa_normalizedChi2[ndmu] = globalTrack->normalizedChi2();
-            dmu_dsa_charge[ndmu] = globalTrack->charge();
-            dmu_dsa_nMuonHits[ndmu] = globalTrack->hitPattern().numberOfMuonHits();
-            dmu_dsa_nValidMuonHits[ndmu] = globalTrack->hitPattern().numberOfValidMuonHits();
-            dmu_dsa_nValidMuonDTHits[ndmu] = globalTrack->hitPattern().numberOfValidMuonDTHits();
-            dmu_dsa_nValidMuonCSCHits[ndmu] = globalTrack->hitPattern().numberOfValidMuonCSCHits();
-            dmu_dsa_nValidMuonRPCHits[ndmu] = globalTrack->hitPattern().numberOfValidMuonRPCHits();
-            dmu_dsa_nValidStripHits[ndmu] = globalTrack->hitPattern().numberOfValidStripHits();
-            dmu_dsa_nhits[ndmu] = globalTrack->hitPattern().numberOfValidHits();
-            dmu_dsa_dtStationsWithValidHits[ndmu] =
-                globalTrack->hitPattern().dtStationsWithValidHits();
-            dmu_dsa_cscStationsWithValidHits[ndmu] =
-                globalTrack->hitPattern().cscStationsWithValidHits();
-            TVector3 dsa_vertex = TVector3();
-            TVector3 dsa_momentum = TVector3();
-            dsa_vertex.SetXYZ(globalTrack->vx(), globalTrack->vy(), globalTrack->vz());
-            dsa_momentum.SetXYZ(globalTrack->px(), globalTrack->py(), globalTrack->pz());
-            // initial values for the gen matching
-            dmu_reco_initial_r[ndmu] = dsa_vertex.Perp();
-            dmu_reco_initial_theta[ndmu] = dsa_vertex.Theta();
-            dmu_reco_initial_phi[ndmu] = dsa_vertex.Phi();
-            dmu_reco_initial_p_r[ndmu] = dsa_momentum.Perp();
-            dmu_reco_initial_p_theta[ndmu] = dsa_momentum.Theta();
-            dmu_reco_initial_p_phi[ndmu] = dsa_momentum.Phi();
-            dmu_reco_final_r[ndmu] = 9999;
-            dmu_reco_final_theta[ndmu] = 9999;
-            dmu_reco_final_phi[ndmu] = 9999;
-            dmu_reco_final_p_r[ndmu] = 9999;
-            dmu_reco_final_p_theta[ndmu] = 9999;
-            dmu_reco_final_p_phi[ndmu] = 9999;
-
-
-            for (int j = 0; j < ngenmu; j++) {
-                chi2Matrix(ndmu, j) = 9999;
-                matchResults[{ndmu, j}] = GenMatchResults::NONE;
-                chi2_vectors[{ndmu, j}] = AlgebraicVector6(9999, 9999, 9999, 9999, 9999, 9999);
-                error_vectors[{ndmu, j}] = AlgebraicVector6(9999, 9999, 9999, 9999, 9999, 9999);
-            }
-        } else if (dmuon.isStandAloneMuon()) {
+        if (dmuon.isStandAloneMuon()) {
             const reco::Track* outerTrack = (dmuon.standAloneMuon()).get();
 
             dmu_dsa_pt[ndmu] = outerTrack->pt();
@@ -612,45 +565,6 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
                 error_vectors[{ndmu, j}] = AlgebraicVector6(9999, 9999, 9999, 9999, 9999, 9999);
             }
         } else {
-            dmu_dsa_pt[ndmu] = 0;
-            dmu_dsa_eta[ndmu] = 0;
-            dmu_dsa_phi[ndmu] = 0;
-            dmu_dsa_ptError[ndmu] = 0;
-            dmu_dsa_dxy[ndmu] = 0;
-            dmu_dsa_dz[ndmu] = 0;
-            dmu_dsa_normalizedChi2[ndmu] = 0;
-            dmu_dsa_charge[ndmu] = 0;
-            dmu_dsa_nMuonHits[ndmu] = 0;
-            dmu_dsa_nValidMuonHits[ndmu] = 0;
-            dmu_dsa_nValidMuonDTHits[ndmu] = 0;
-            dmu_dsa_nValidMuonCSCHits[ndmu] = 0;
-            dmu_dsa_nValidMuonRPCHits[ndmu] = 0;
-            dmu_dsa_nValidStripHits[ndmu] = 0;
-            dmu_dsa_nhits[ndmu] = 0;
-            dmu_dsa_dtStationsWithValidHits[ndmu] = 0;
-            dmu_dsa_cscStationsWithValidHits[ndmu] = 0;
-            dmu_dsa_nsegments[ndmu] = 0;
-
-            dmu_reco_initial_r[ndmu] = 9999;
-            dmu_reco_initial_theta[ndmu] = 9999;
-            dmu_reco_initial_phi[ndmu] = 9999;
-            dmu_reco_initial_p_r[ndmu] = 9999;
-            dmu_reco_initial_p_theta[ndmu] = 9999;
-            dmu_reco_initial_p_phi[ndmu] = 9999;
-            dmu_reco_final_r[ndmu] = 9999;
-            dmu_reco_final_theta[ndmu] = 9999;
-            dmu_reco_final_phi[ndmu] = 9999;
-            dmu_reco_final_p_r[ndmu] = 9999;
-            dmu_reco_final_p_theta[ndmu] = 9999;
-            dmu_reco_final_p_phi[ndmu] = 9999;
-
-
-            for (int j = 0; j < ngenmu; j++) {
-                chi2Matrix(ndmu, j) = 9999;
-                matchResults[{ndmu, j}] = GenMatchResults::NONE;
-                chi2_vectors[{ndmu, j}] = AlgebraicVector6(9999, 9999, 9999, 9999, 9999, 9999);
-                error_vectors[{ndmu, j}] = AlgebraicVector6(9999, 9999, 9999, 9999, 9999, 9999);
-            }
             continue;
         }
         // ----------------------------------
@@ -736,6 +650,11 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
             if (chi2Matrix(i, j) == 9999) {
                 boolMatrix(i, j) = 0;
             }
+        }
+    }
+    if (ndmu == 0) {
+        for (int j = 0; j < ngenmu; j++) {
+            genmu_propagationSurface[j] = static_cast<Int_t>(GenMatchResults::ZERO_RECOS_FOUND);
         }
     }
 
