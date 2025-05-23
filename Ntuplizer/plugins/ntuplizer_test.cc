@@ -440,9 +440,8 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
                     // genFinalParams
                     GlobalTrajectoryParameters genFinalParams = GlobalTrajectoryParameters();
                     GlobalVector genMomentum(genParticle.px(), genParticle.py(), genParticle.pz());
-                    // Gen vertices are in mm, make it cm
-                    GlobalPoint genVertex(genParticle.vx() * 0.1, genParticle.vy() * 0.1,
-                                          genParticle.vz() * 0.1);
+                    // Gen vertices are in cm and that's okay
+                    GlobalPoint genVertex(genParticle.vx(), genParticle.vy(), genParticle.vz());
                     int genCharge = genParticle.charge();
                     FreeTrajectoryState genFTS(genVertex, genMomentum, genCharge, magField);
 
