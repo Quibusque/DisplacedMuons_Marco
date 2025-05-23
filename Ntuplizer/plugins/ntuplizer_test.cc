@@ -132,47 +132,37 @@ class ntuplizer_test : public edm::one::EDAnalyzer<edm::one::SharedResources> {
     Int_t genmu_propagationSurface[10] = {-1};
     Int_t genmu_charge[10] = {0};
     Float_t genmu_pt[10] = {0};
-    Float_t genmu_initial_r[10] = {9999.};
-    Float_t genmu_initial_theta[10] = {9999.};
-    Float_t genmu_initial_phi[10] = {9999.};
-    Float_t genmu_final_r[10] = {9999.};
-    Float_t genmu_final_theta[10] = {9999.};
-    Float_t genmu_final_phi[10] = {9999.};
-    Float_t genmu_initial_p_r[10] = {9999.};
-    Float_t genmu_initial_p_theta[10] = {9999.};
-    Float_t genmu_initial_p_phi[10] = {9999.};
-    Float_t genmu_final_p_r[10] = {9999.};
-    Float_t genmu_final_p_theta[10] = {9999.};
-    Float_t genmu_final_p_phi[10] = {9999.};
+    Float_t genmu_initial_x[10] = {9999.};
+    Float_t genmu_initial_y[10] = {9999.};
+    Float_t genmu_initial_z[10] = {9999.};
+    Float_t genmu_initial_p_x[10] = {9999.};
+    Float_t genmu_initial_p_y[10] = {9999.};
+    Float_t genmu_initial_p_z[10] = {9999.};
+    Float_t genmu_final_x[10] = {9999.};
+    Float_t genmu_final_y[10] = {9999.};
+    Float_t genmu_final_z[10] = {9999.};
+    Float_t genmu_final_p_x[10] = {9999.};
+    Float_t genmu_final_p_y[10] = {9999.};
+    Float_t genmu_final_p_z[10] = {9999.};
     bool dmu_hasGenMatch[200] = {false};
     Int_t dmu_genMatchedIndex[200] = {0};
-    Float_t dmu_reco_initial_r[200] = {9999.};
-    Float_t dmu_reco_initial_theta[200] = {9999.};
-    Float_t dmu_reco_initial_phi[200] = {9999.};
-    Float_t dmu_reco_final_r[200] = {9999.};
-    Float_t dmu_reco_final_theta[200] = {9999.};
-    Float_t dmu_reco_final_phi[200] = {9999.};
-    Float_t dmu_reco_initial_p_r[200] = {9999.};
-    Float_t dmu_reco_initial_p_theta[200] = {9999.};
-    Float_t dmu_reco_initial_p_phi[200] = {9999.};
-    Float_t dmu_reco_final_p_r[200] = {9999.};
-    Float_t dmu_reco_final_p_theta[200] = {9999.};
-    Float_t dmu_reco_final_p_phi[200] = {9999.};
-    Float_t dmu_reco_final_x_err[200] = {9999.};
-    Float_t dmu_reco_final_y_err[200] = {9999.};
-    Float_t dmu_reco_final_z_err[200] = {9999.};
-    Float_t dmu_reco_final_px_err[200] = {9999.};
-    Float_t dmu_reco_final_py_err[200] = {9999.};
-    Float_t dmu_reco_final_pz_err[200] = {9999.};
+    Float_t dmu_dsa_initial_x[200] = {9999.};
+    Float_t dmu_dsa_initial_y[200] = {9999.};
+    Float_t dmu_dsa_initial_z[200] = {9999.};
+    Float_t dmu_dsa_initial_p_x[200] = {9999.};
+    Float_t dmu_dsa_initial_p_y[200] = {9999.};
+    Float_t dmu_dsa_initial_p_z[200] = {9999.};
+    Float_t dmu_dsa_final_x[200] = {9999.};
+    Float_t dmu_dsa_final_y[200] = {9999.};
+    Float_t dmu_dsa_final_z[200] = {9999.};
+    Float_t dmu_dsa_final_p_x[200] = {9999.};
+    Float_t dmu_dsa_final_p_y[200] = {9999.};
+    Float_t dmu_dsa_final_p_z[200] = {9999.};
 
     Int_t dmu_propagationSurface[200] = {-1};
-    Float_t dmu_chi2[200] = {9999.};
-    Float_t dmu_chi2_x[200] = {9999.};
-    Float_t dmu_chi2_y[200] = {9999.};
-    Float_t dmu_chi2_z[200] = {9999.};
-    Float_t dmu_chi2_px[200] = {9999.};
-    Float_t dmu_chi2_py[200] = {9999.};
-    Float_t dmu_chi2_pz[200] = {9999.};
+    Float_t dmu_dsa_match_chi2[200] = {9999.};
+    Float_t dmu_dsa_match_chi2_pos[200] = {9999.};
+    Float_t dmu_dsa_match_chi2_mom[200] = {9999.};
 
     Float_t dmu_dsa_pt[200] = {0.};
     Float_t dmu_dsa_eta[200] = {0.};
@@ -303,70 +293,44 @@ void ntuplizer_test::beginJob() {
     if (isMCSignal) {
         tree_out->Branch("ngenmu", &ngenmu, "ngenmu/I");
         tree_out->Branch("genmu_kindOfMatching", genmu_kindOfMatching,
-                    "genmu_kindOfMatching[ngenmu]/I");
+                         "genmu_kindOfMatching[ngenmu]/I");
         tree_out->Branch("genmu_propagationSurface", genmu_propagationSurface,
                          "genmu_propagationSurface[ngenmu]/I");
         tree_out->Branch("genmu_charge", genmu_charge, "genmu_charge[ngenmu]/I");
         tree_out->Branch("genmu_pt", genmu_pt, "genmu_pt[ngenmu]/F");
         tree_out->Branch("dmu_hasGenMatch", dmu_hasGenMatch, "dmu_hasGenMatch[ndmu]/O");
         tree_out->Branch("dmu_genMatchedIndex", dmu_genMatchedIndex, "dmu_genMatchedIndex[ndmu]/I");
-        tree_out->Branch("dmu_reco_initial_r", dmu_reco_initial_r, "dmu_reco_initial_r[ndmu]/F");
-        tree_out->Branch("dmu_reco_initial_theta", dmu_reco_initial_theta,
-                         "dmu_reco_initial_theta[ndmu]/F");
-        tree_out->Branch("dmu_reco_initial_phi", dmu_reco_initial_phi,
-                         "dmu_reco_initial_phi[ndmu]/F");
-        tree_out->Branch("dmu_reco_final_r", dmu_reco_final_r, "dmu_reco_final_r[ndmu]/F");
-        tree_out->Branch("dmu_reco_final_theta", dmu_reco_final_theta,
-                         "dmu_reco_final_theta[ndmu]/F");
-        tree_out->Branch("dmu_reco_final_phi", dmu_reco_final_phi, "dmu_reco_final_phi[ndmu]/F");
-        tree_out->Branch("dmu_reco_initial_p_r", dmu_reco_initial_p_r,
-                         "dmu_reco_initial_p_r[ndmu]/F");
-        tree_out->Branch("dmu_reco_initial_p_theta", dmu_reco_initial_p_theta,
-                         "dmu_reco_initial_p_theta[ndmu]/F");
-        tree_out->Branch("dmu_reco_initial_p_phi", dmu_reco_initial_p_phi,
-                         "dmu_reco_initial_p_phi[ndmu]/F");
-        tree_out->Branch("dmu_reco_final_p_r", dmu_reco_final_p_r, "dmu_reco_final_p_r[ndmu]/F");
-        tree_out->Branch("dmu_reco_final_p_theta", dmu_reco_final_p_theta,
-                         "dmu_reco_final_p_theta[ndmu]/F");
-        tree_out->Branch("dmu_reco_final_p_phi", dmu_reco_final_p_phi,
-                         "dmu_reco_final_p_phi[ndmu]/F");
-        tree_out->Branch("genmu_initial_r", genmu_initial_r, "genmu_initial_r[ngenmu]/F");
-        tree_out->Branch("genmu_initial_theta", genmu_initial_theta,
-                         "genmu_initial_theta[ngenmu]/F");
-        tree_out->Branch("genmu_initial_phi", genmu_initial_phi, "genmu_initial_phi[ngenmu]/F");
-        tree_out->Branch("genmu_final_r", genmu_final_r, "genmu_final_r[ngenmu]/F");
-        tree_out->Branch("genmu_final_theta", genmu_final_theta, "genmu_final_theta[ngenmu]/F");
-        tree_out->Branch("genmu_final_phi", genmu_final_phi, "genmu_final_phi[ngenmu]/F");
-        tree_out->Branch("genmu_initial_p_r", genmu_initial_p_r, "genmu_initial_p_r[ngenmu]/F");
-        tree_out->Branch("genmu_initial_p_theta", genmu_initial_p_theta,
-                         "genmu_initial_p_theta[ngenmu]/F");
-        tree_out->Branch("genmu_initial_p_phi", genmu_initial_p_phi,
-                         "genmu_initial_p_phi[ngenmu]/F");
-        tree_out->Branch("genmu_final_p_r", genmu_final_p_r, "genmu_final_p_r[ngenmu]/F");
-        tree_out->Branch("genmu_final_p_theta", genmu_final_p_theta,
-                         "genmu_final_p_theta[ngenmu]/F");
-        tree_out->Branch("genmu_final_p_phi", genmu_final_p_phi, "genmu_final_p_phi[ngenmu]/F");
+        tree_out->Branch("dmu_dsa_initial_ x", dmu_dsa_initial_x, "dmu_dsa_initial_x[ndmu]/F");
+        tree_out->Branch("dmu_dsa_initial_y", dmu_dsa_initial_y, "dmu_dsa_initial_y[ndmu]/F");
+        tree_out->Branch("dmu_dsa_initial_z", dmu_dsa_initial_z, "dmu_dsa_initial_z[ndmu]/F");
+        tree_out->Branch("dmu_dsa_initial_p_x", dmu_dsa_initial_p_x, "dmu_dsa_initial_p_x[ndmu]/F");
+        tree_out->Branch("dmu_dsa_initial_p_y", dmu_dsa_initial_p_y, "dmu_dsa_initial_p_y[ndmu]/F");
+        tree_out->Branch("dmu_dsa_initial_p_z", dmu_dsa_initial_p_z, "dmu_dsa_initial_p_z[ndmu]/F");
+        tree_out->Branch("dmu_dsa_final_x", dmu_dsa_final_x, "dmu_dsa_final_x[ndmu]/F");
+        tree_out->Branch("dmu_dsa_final_y", dmu_dsa_final_y, "dmu_dsa_final_y[ndmu]/F");
+        tree_out->Branch("dmu_dsa_final_z", dmu_dsa_final_z, "dmu_dsa_final_z[ndmu]/F");
+        tree_out->Branch("dmu_dsa_final_p_x", dmu_dsa_final_p_x, "dmu_dsa_final_p_x[ndmu]/F");
+        tree_out->Branch("dmu_dsa_final_p_y", dmu_dsa_final_p_y, "dmu_dsa_final_p_y[ndmu]/F");
+        tree_out->Branch("dmu_dsa_final_p_z", dmu_dsa_final_p_z, "dmu_dsa_final_p_z[ndmu]/F");
+        tree_out->Branch("genmu_initial_x", genmu_initial_x, "genmu_initial_x[ngenmu]/F");
+        tree_out->Branch("genmu_initial_y", genmu_initial_y, "genmu_initial_y[ngenmu]/F");
+        tree_out->Branch("genmu_initial_z", genmu_initial_z, "genmu_initial_z[ngenmu]/F");
+        tree_out->Branch("genmu_initial_p_x", genmu_initial_p_x, "genmu_initial_p_x[ngenmu]/F");
+        tree_out->Branch("genmu_initial_p_y", genmu_initial_p_y, "genmu_initial_p_y[ngenmu]/F");
+        tree_out->Branch("genmu_initial_p_z", genmu_initial_p_z, "genmu_initial_p_z[ngenmu]/F");
+        tree_out->Branch("genmu_final_x", genmu_final_x, "genmu_final_x[ngenmu]/F");
+        tree_out->Branch("genmu_final_y", genmu_final_y, "genmu_final_y[ngenmu]/F");
+        tree_out->Branch("genmu_final_z", genmu_final_z, "genmu_final_z[ngenmu]/F");
+        tree_out->Branch("genmu_final_p_x", genmu_final_p_x, "genmu_final_p_x[ngenmu]/F");
+        tree_out->Branch("genmu_final_p_y", genmu_final_p_y, "genmu_final_p_y[ngenmu]/F");
+        tree_out->Branch("genmu_final_p_z", genmu_final_p_z, "genmu_final_p_z[ngenmu]/F");
         tree_out->Branch("dmu_propagationSurface", dmu_propagationSurface,
                          "dmu_propagationSurface[ndmu]/I");
-        tree_out->Branch("dmu_chi2", dmu_chi2, "dmu_chi2[ndmu]/F");
-        tree_out->Branch("dmu_chi2_x", dmu_chi2_x, "dmu_chi2_x[ndmu]/F");
-        tree_out->Branch("dmu_chi2_y", dmu_chi2_y, "dmu_chi2_y[ndmu]/F");
-        tree_out->Branch("dmu_chi2_z", dmu_chi2_z, "dmu_chi2_z[ndmu]/F");
-        tree_out->Branch("dmu_chi2_px", dmu_chi2_px, "dmu_chi2_px[ndmu]/F");
-        tree_out->Branch("dmu_chi2_py", dmu_chi2_py, "dmu_chi2_py[ndmu]/F");
-        tree_out->Branch("dmu_chi2_pz", dmu_chi2_pz, "dmu_chi2_pz[ndmu]/F");
-        tree_out->Branch("dmu_reco_final_x_err", dmu_reco_final_x_err,
-                         "dmu_reco_final_x_err[ndmu]/F");
-        tree_out->Branch("dmu_reco_final_y_err", dmu_reco_final_y_err,
-                         "dmu_reco_final_y_err[ndmu]/F");
-        tree_out->Branch("dmu_reco_final_z_err", dmu_reco_final_z_err,
-                         "dmu_reco_final_z_err[ndmu]/F");
-        tree_out->Branch("dmu_reco_final_px_err", dmu_reco_final_px_err,
-                         "dmu_reco_final_px_err[ndmu]/F");
-        tree_out->Branch("dmu_reco_final_py_err", dmu_reco_final_py_err,
-                         "dmu_reco_final_py_err[ndmu]/F");
-        tree_out->Branch("dmu_reco_final_pz_err", dmu_reco_final_pz_err,
-                         "dmu_reco_final_pz_err[ndmu]/F");
+        tree_out->Branch("dmu_dsa_match_chi2", dmu_dsa_match_chi2, "dmu_dsa_match_chi2[ndmu]/F");
+        tree_out->Branch("dmu_dsa_match_chi2_pos", dmu_dsa_match_chi2_pos,
+                         "dmu_dsa_match_chi2_pos[ndmu]/F");
+        tree_out->Branch("dmu_dsa_match_chi2_mom", dmu_dsa_match_chi2_mom,
+                         "dmu_dsa_match_chi2_mom[ndmu]/F");
     }
     // Trigger branches
     for (unsigned int ihlt = 0; ihlt < HLTPaths_.size(); ihlt++) {
@@ -434,7 +398,6 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
                 genParticle.status() == 1) {  // Check if the particle is a muon
                 // Check if the muon has a mother with pdgId 1023
                 if (hasMotherWithPdgId(&genParticle, 1023)) {
-
                     // ---------------------------------------------------------
                     // Propagate the gens to the surface for later gen matching
                     // ---------------------------------------------------------
@@ -460,20 +423,19 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
                     genPropagationResults[ngenmu] = std::make_pair(genSurface, genFinalParams);
 
                     if (genSurface == PropagationConstants::GEN_OUTSIDE_CMS) {
-                        genmu_kindOfMatching[ngenmu] =
-                            static_cast<int>(genSurface.genMatchResult);
+                        genmu_kindOfMatching[ngenmu] = static_cast<int>(genSurface.genMatchResult);
                     } else {
                         genmu_kindOfMatching[ngenmu] = -1;
                     }
                     genmu_propagationSurface[ngenmu] = static_cast<int>(genSurface.genMatchResult);
                     genmu_pt[ngenmu] = genParticle.pt();
                     genmu_charge[ngenmu] = genCharge;
-                    genmu_initial_r[ngenmu] = genVertex.perp();
-                    genmu_initial_theta[ngenmu] = genVertex.theta();
-                    genmu_initial_phi[ngenmu] = genVertex.phi();
-                    genmu_initial_p_r[ngenmu] = genMomentum.perp();
-                    genmu_initial_p_theta[ngenmu] = genMomentum.theta();
-                    genmu_initial_p_phi[ngenmu] = genMomentum.phi();
+                    genmu_initial_x[ngenmu] = genVertex.x();
+                    genmu_initial_y[ngenmu] = genVertex.y();
+                    genmu_initial_z[ngenmu] = genVertex.z();
+                    genmu_initial_p_x[ngenmu] = genMomentum.x();
+                    genmu_initial_p_y[ngenmu] = genMomentum.y();
+                    genmu_initial_p_z[ngenmu] = genMomentum.z();
 
                     ngenmu++;
                 }
@@ -488,8 +450,6 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
     std::map<std::pair<int, int>, std::pair<GlobalTrajectoryParameters, GlobalTrajectoryParameters>>
         propagatedTrajectories;
     TMatrixF chi2Matrix = TMatrixF(dmuons->size(), ngenmu);
-    std::map<std::pair<int, int>, AlgebraicVector6> error_vectors;
-    std::map<std::pair<int, int>, AlgebraicVector6> chi2_vectors;
     std::map<std::pair<int, int>, GenMatchResults> matchResults;
     for (unsigned int i = 0; i < dmuons->size(); i++) {
         const reco::Muon& dmuon(dmuons->at(i));
@@ -506,19 +466,9 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
         dmu_t0_OutIn[ndmu] = dmuon.time().timeAtIpOutIn;
         dmu_hasGenMatch[ndmu] = false;
         dmu_propagationSurface[ndmu] = -1;
-        dmu_chi2[ndmu] = 9999;
-        dmu_chi2_x[ndmu] = 9999;
-        dmu_chi2_y[ndmu] = 9999;
-        dmu_chi2_z[ndmu] = 9999;
-        dmu_chi2_px[ndmu] = 9999;
-        dmu_chi2_py[ndmu] = 9999;
-        dmu_chi2_pz[ndmu] = 9999;
-        dmu_reco_final_x_err[ndmu] = 9999;
-        dmu_reco_final_y_err[ndmu] = 9999;
-        dmu_reco_final_z_err[ndmu] = 9999;
-        dmu_reco_final_px_err[ndmu] = 9999;
-        dmu_reco_final_py_err[ndmu] = 9999;
-        dmu_reco_final_pz_err[ndmu] = 9999;
+        dmu_dsa_match_chi2[ndmu] = 9999;
+        dmu_dsa_match_chi2_pos[ndmu] = 9999;
+        dmu_dsa_match_chi2_mom[ndmu] = 9999;
 
         if (dmuon.isStandAloneMuon()) {
             const reco::Track* outerTrack = (dmuon.standAloneMuon()).get();
@@ -542,30 +492,23 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
                 outerTrack->hitPattern().dtStationsWithValidHits();
             dmu_dsa_cscStationsWithValidHits[ndmu] =
                 outerTrack->hitPattern().cscStationsWithValidHits();
-            TVector3 dsa_vertex = TVector3();
-            TVector3 dsa_momentum = TVector3();
-            dsa_vertex.SetXYZ(outerTrack->vx(), outerTrack->vy(), outerTrack->vz());
-            dsa_momentum.SetXYZ(outerTrack->px(), outerTrack->py(), outerTrack->pz());
             // initial values for the gen matching
-            dmu_reco_initial_r[ndmu] = dsa_vertex.Perp();
-            dmu_reco_initial_theta[ndmu] = dsa_vertex.Theta();
-            dmu_reco_initial_phi[ndmu] = dsa_vertex.Phi();
-            dmu_reco_initial_p_r[ndmu] = dsa_momentum.Perp();
-            dmu_reco_initial_p_theta[ndmu] = dsa_momentum.Theta();
-            dmu_reco_initial_p_phi[ndmu] = dsa_momentum.Phi();
-            dmu_reco_final_r[ndmu] = 9999;
-            dmu_reco_final_theta[ndmu] = 9999;
-            dmu_reco_final_phi[ndmu] = 9999;
-            dmu_reco_final_p_r[ndmu] = 9999;
-            dmu_reco_final_p_theta[ndmu] = 9999;
-            dmu_reco_final_p_phi[ndmu] = 9999;
-
+            dmu_dsa_initial_x[ndmu] = outerTrack->vx();
+            dmu_dsa_initial_y[ndmu] = outerTrack->vy();
+            dmu_dsa_initial_z[ndmu] = outerTrack->vz();
+            dmu_dsa_initial_p_x[ndmu] = outerTrack->px();
+            dmu_dsa_initial_p_y[ndmu] = outerTrack->py();
+            dmu_dsa_initial_p_z[ndmu] = outerTrack->pz();
+            dmu_dsa_final_x[ndmu] = 9999;
+            dmu_dsa_final_y[ndmu] = 9999;
+            dmu_dsa_final_z[ndmu] = 9999;
+            dmu_dsa_final_p_x[ndmu] = 9999;
+            dmu_dsa_final_p_y[ndmu] = 9999;
+            dmu_dsa_final_p_z[ndmu] = 9999;
 
             for (int j = 0; j < ngenmu; j++) {
                 chi2Matrix(ndmu, j) = 9999;
                 matchResults[{ndmu, j}] = GenMatchResults::NONE;
-                chi2_vectors[{ndmu, j}] = AlgebraicVector6(9999, 9999, 9999, 9999, 9999, 9999);
-                error_vectors[{ndmu, j}] = AlgebraicVector6(9999, 9999, 9999, 9999, 9999, 9999);
             }
         } else {
             continue;
@@ -600,16 +543,9 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
                 bool goodMatch = (static_cast<int>(matchResult) > 0);
                 AlgebraicVector6 chi2_vector =
                     calculateChi2Vector(genFinalParams, recoFinalParams, recoError);
-
-                AlgebraicVector6 error_vector = AlgebraicVector6(
-                    recoError.matrix()(0, 0), recoError.matrix()(1, 1), recoError.matrix()(2, 2),
-                    recoError.matrix()(3, 3), recoError.matrix()(4, 4), recoError.matrix()(5, 5));
-                error_vectors[{ndmu, j}] = error_vector;
-                Float_t chi2 = 0;
+                Float_t chi2 = 0.;
                 for (int k = 0; k < 6; k++) {
-                    chi2 += chi2_vector[k];
-                    // fill chi2_vectors
-                    chi2_vectors[{ndmu, j}][k] = chi2_vector[k];
+                    chi2 += chi2_vector(k);
                 }
                 chi2Matrix(ndmu, j) = (goodMatch) ? chi2 : 9999;
             }
@@ -675,20 +611,9 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
                 dmu_propagationSurface[i] = static_cast<Int_t>(matchResult);
                 genmu_kindOfMatching[j] = static_cast<Int_t>(matchResult);
 
-                dmu_chi2[i] = chi2Matrix(i, j);
-                dmu_chi2_x[i] = chi2_vectors[{i, j}][0];
-                dmu_chi2_y[i] = chi2_vectors[{i, j}][1];
-                dmu_chi2_z[i] = chi2_vectors[{i, j}][2];
-                dmu_chi2_px[i] = chi2_vectors[{i, j}][3];
-                dmu_chi2_py[i] = chi2_vectors[{i, j}][4];
-                dmu_chi2_pz[i] = chi2_vectors[{i, j}][5];
-
-                dmu_reco_final_x_err[i] = error_vectors[{i, j}][0];
-                dmu_reco_final_y_err[i] = error_vectors[{i, j}][1];
-                dmu_reco_final_z_err[i] = error_vectors[{i, j}][2];
-                dmu_reco_final_px_err[i] = error_vectors[{i, j}][3];
-                dmu_reco_final_py_err[i] = error_vectors[{i, j}][4];
-                dmu_reco_final_pz_err[i] = error_vectors[{i, j}][5];
+                dmu_dsa_match_chi2[i] = chi2Matrix(i, j)/ 5.;
+                dmu_dsa_match_chi2_pos[i] = chi2Matrix(i, j)/ 2.;
+                dmu_dsa_match_chi2_mom[i] = chi2Matrix(i, j)/ 3.;
 
                 GlobalTrajectoryParameters genFinalParams = propagatedTrajectories[{i, j}].first;
                 GlobalTrajectoryParameters recoFinalParams = propagatedTrajectories[{i, j}].second;
@@ -697,19 +622,19 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
                 GlobalPoint genFinalVertex = genFinalParams.position();
                 GlobalVector genFinalMomentum = genFinalParams.momentum();
 
-                dmu_reco_final_r[i] = recoFinalVertex.perp();
-                dmu_reco_final_theta[i] = recoFinalVertex.theta();
-                dmu_reco_final_phi[i] = recoFinalVertex.phi();
-                dmu_reco_final_p_r[i] = recoFinalMomentum.perp();
-                dmu_reco_final_p_theta[i] = recoFinalMomentum.theta();
-                dmu_reco_final_p_phi[i] = recoFinalMomentum.phi();
+                dmu_dsa_final_x[i] = recoFinalVertex.x();
+                dmu_dsa_final_y[i] = recoFinalVertex.y();
+                dmu_dsa_final_z[i] = recoFinalVertex.z();
+                dmu_dsa_final_p_x[i] = recoFinalMomentum.x();
+                dmu_dsa_final_p_y[i] = recoFinalMomentum.y();
+                dmu_dsa_final_p_z[i] = recoFinalMomentum.z();
 
-                genmu_final_r[j] = genFinalVertex.perp();
-                genmu_final_theta[j] = genFinalVertex.theta();
-                genmu_final_phi[j] = genFinalVertex.phi();
-                genmu_final_p_r[j] = genFinalMomentum.perp();
-                genmu_final_p_theta[j] = genFinalMomentum.theta();
-                genmu_final_p_phi[j] = genFinalMomentum.phi();
+                genmu_final_x[j] = genFinalVertex.x();
+                genmu_final_y[j] = genFinalVertex.y();
+                genmu_final_z[j] = genFinalVertex.z();
+                genmu_final_p_x[j] = genFinalMomentum.x();
+                genmu_final_p_y[j] = genFinalMomentum.y();
+                genmu_final_p_z[j] = genFinalMomentum.z();
                 break;
             }
         }
