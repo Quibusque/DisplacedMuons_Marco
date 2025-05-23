@@ -128,6 +128,7 @@ class ntuplizer_test : public edm::one::EDAnalyzer<edm::one::SharedResources> {
 
     // Variables for gen matching
     Int_t ngenmu = 0;
+    Int_t genmu_kindOfMatching[10] = {-1};
     Int_t genmu_propagationSurface[10] = {-1};
     Int_t genmu_charge[10] = {0};
     Float_t genmu_pt[10] = {0};
@@ -301,6 +302,8 @@ void ntuplizer_test::beginJob() {
     // Gen Matching branches
     if (isMCSignal) {
         tree_out->Branch("ngenmu", &ngenmu, "ngenmu/I");
+        tree_out->Branch("genmu_kindOfMatching", genmu_kindOfMatching,
+                    "genmu_kindOfMatching[ngenmu]/I");
         tree_out->Branch("genmu_propagationSurface", genmu_propagationSurface,
                          "genmu_propagationSurface[ngenmu]/I");
         tree_out->Branch("genmu_charge", genmu_charge, "genmu_charge[ngenmu]/I");
@@ -457,11 +460,12 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
                     genPropagationResults[ngenmu] = std::make_pair(genSurface, genFinalParams);
 
                     if (genSurface == PropagationConstants::GEN_OUTSIDE_CMS) {
-                        genmu_propagationSurface[ngenmu] =
+                        genmu_kindOfMatching[ngenmu] =
                             static_cast<int>(genSurface.genMatchResult);
                     } else {
-                        genmu_propagationSurface[ngenmu] = -1;
+                        genmu_kindOfMatching[ngenmu] = -1;
                     }
+                    genmu_propagationSurface[ngenmu] = static_cast<int>(genSurface.genMatchResult);
                     genmu_pt[ngenmu] = genParticle.pt();
                     genmu_charge[ngenmu] = genCharge;
                     genmu_initial_r[ngenmu] = genVertex.perp();
@@ -653,7 +657,9 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
     }
     if (ndmu == 0) {
         for (int j = 0; j < ngenmu; j++) {
-            genmu_propagationSurface[j] = static_cast<Int_t>(GenMatchResults::ZERO_RECOS_FOUND);
+            if (genmu_kindOfMatching[j] != static_cast<Int_t>(GenMatchResults::GEN_OUTSIDE_CMS)) {
+                genmu_kindOfMatching[j] = static_cast<Int_t>(GenMatchResults::ZERO_RECOS_FOUND);
+            }
         }
     }
 
@@ -667,7 +673,7 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
                 dmu_genMatchedIndex[i] = j;
                 GenMatchResults matchResult = matchResults[{i, j}];
                 dmu_propagationSurface[i] = static_cast<Int_t>(matchResult);
-                genmu_propagationSurface[j] = static_cast<Int_t>(matchResult);
+                genmu_kindOfMatching[j] = static_cast<Int_t>(matchResult);
 
                 dmu_chi2[i] = chi2Matrix(i, j);
                 dmu_chi2_x[i] = chi2_vectors[{i, j}][0];
@@ -707,8 +713,8 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
                 break;
             }
         }
-        // fill genmu_propagationSurface for the failed matches
-        if (genmu_propagationSurface[j] == -1 && ndmu > 0 &&
+        // fill genmu_kindOfMatching for the failed matches
+        if (genmu_kindOfMatching[j] == -1 && ndmu > 0 &&
             (static_cast<Int_t>(matchResults[{0, j}]) < 0)) {
             Int_t first = static_cast<Int_t>(matchResults[{0, j}]);
             if (first == -1) {
@@ -722,7 +728,7 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
                 }
             }
             if (all_same) {
-                genmu_propagationSurface[j] = first;
+                genmu_kindOfMatching[j] = first;
             }
         }
     }
