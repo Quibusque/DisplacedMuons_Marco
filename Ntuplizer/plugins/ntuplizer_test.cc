@@ -302,7 +302,7 @@ void ntuplizer_test::beginJob() {
         tree_out->Branch("genmu_pt", genmu_pt, "genmu_pt[ngenmu]/F");
         tree_out->Branch("dmu_hasGenMatch", dmu_hasGenMatch, "dmu_hasGenMatch[ndmu]/O");
         tree_out->Branch("dmu_genMatchedIndex", dmu_genMatchedIndex, "dmu_genMatchedIndex[ndmu]/I");
-        tree_out->Branch("dmu_dsa_initial_ x", dmu_dsa_initial_x, "dmu_dsa_initial_x[ndmu]/F");
+        tree_out->Branch("dmu_dsa_initial_x", dmu_dsa_initial_x, "dmu_dsa_initial_x[ndmu]/F");
         tree_out->Branch("dmu_dsa_initial_y", dmu_dsa_initial_y, "dmu_dsa_initial_y[ndmu]/F");
         tree_out->Branch("dmu_dsa_initial_z", dmu_dsa_initial_z, "dmu_dsa_initial_z[ndmu]/F");
         tree_out->Branch("dmu_dsa_initial_p_x", dmu_dsa_initial_p_x, "dmu_dsa_initial_p_x[ndmu]/F");
