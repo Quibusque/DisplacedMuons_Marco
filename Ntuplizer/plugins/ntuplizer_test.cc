@@ -69,6 +69,7 @@ class ntuplizer_test : public edm::one::EDAnalyzer<edm::one::SharedResources> {
     bool isAOD = false;
     bool isCosmics = false;
     bool isMCSignal = false;
+    bool isMuonGun = false;
 
     //
     // --- Tokens and Handles
@@ -202,6 +203,7 @@ ntuplizer_test::ntuplizer_test(const edm::ParameterSet& iConfig) {
     isAOD = parameters.getParameter<bool>("isAOD");
     isCosmics = parameters.getParameter<bool>("isCosmics");
     isMCSignal = parameters.getParameter<bool>("isMCSignal");
+    isMuonGun = parameters.getParameter<bool>("isMuonGun");
 
     counts = new TH1F("counts", "", 1, 0, 1);
 
@@ -397,48 +399,51 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
             if (abs(genParticle.pdgId()) == 13 &&
                 genParticle.status() == 1) {  // Check if the particle is a muon
                 // Check if the muon has a mother with pdgId 1023
-                if (hasMotherWithPdgId(&genParticle, 1023)) {
-                    // ---------------------------------------------------------
-                    // Propagate the gens to the surface for later gen matching
-                    // ---------------------------------------------------------
-
-                    // Initial state information in genFTS, final state information in
-                    // genFinalParams
-                    GlobalTrajectoryParameters genFinalParams = GlobalTrajectoryParameters();
-                    GlobalVector genMomentum(genParticle.px(), genParticle.py(), genParticle.pz());
-                    // Gen vertices are in cm and that's okay
-                    GlobalPoint genVertex(genParticle.vx(), genParticle.vy(), genParticle.vz());
-                    int genCharge = genParticle.charge();
-                    FreeTrajectoryState genFTS(genVertex, genMomentum, genCharge, magField);
-
-                    PropagationSurface genSurface = findAndPropagateToOptimalSurface(
-                        genFTS, genFinalParams, magField, propagatorAlong, propagatorOpposite);
-
-                    bool goodMatch = (static_cast<int>(genSurface.genMatchResult) > 0);
-                    if (goodMatch) {
-                        genFinalParams = GlobalTrajectoryParameters(genFinalParams.position(),
-                                                                    genFinalParams.momentum(),
-                                                                    genCharge, magField);
+                // DO NOT CHECK for muon gun
+                if (!isMuonGun) {
+                    if (!hasMotherWithPdgId(&genParticle, 1023)) {
+                        continue;
                     }
-                    genPropagationResults[ngenmu] = std::make_pair(genSurface, genFinalParams);
-
-                    if (genSurface == PropagationConstants::GEN_OUTSIDE_CMS) {
-                        genmu_kindOfMatching[ngenmu] = static_cast<int>(genSurface.genMatchResult);
-                    } else {
-                        genmu_kindOfMatching[ngenmu] = -1;
-                    }
-                    genmu_propagationSurface[ngenmu] = static_cast<int>(genSurface.genMatchResult);
-                    genmu_pt[ngenmu] = genParticle.pt();
-                    genmu_charge[ngenmu] = genCharge;
-                    genmu_initial_x[ngenmu] = genVertex.x();
-                    genmu_initial_y[ngenmu] = genVertex.y();
-                    genmu_initial_z[ngenmu] = genVertex.z();
-                    genmu_initial_p_x[ngenmu] = genMomentum.x();
-                    genmu_initial_p_y[ngenmu] = genMomentum.y();
-                    genmu_initial_p_z[ngenmu] = genMomentum.z();
-
-                    ngenmu++;
                 }
+                // ---------------------------------------------------------
+                // Propagate the gens to the surface for later gen matching
+                // ---------------------------------------------------------
+
+                // Initial state information in genFTS, final state information in
+                // genFinalParams
+                GlobalTrajectoryParameters genFinalParams = GlobalTrajectoryParameters();
+                GlobalVector genMomentum(genParticle.px(), genParticle.py(), genParticle.pz());
+                // Gen vertices are in cm and that's okay
+                GlobalPoint genVertex(genParticle.vx(), genParticle.vy(), genParticle.vz());
+                int genCharge = genParticle.charge();
+                FreeTrajectoryState genFTS(genVertex, genMomentum, genCharge, magField);
+
+                PropagationSurface genSurface = findAndPropagateToOptimalSurface(
+                    genFTS, genFinalParams, magField, propagatorAlong, propagatorOpposite);
+
+                bool goodMatch = (static_cast<int>(genSurface.genMatchResult) > 0);
+                if (goodMatch) {
+                    genFinalParams = GlobalTrajectoryParameters(
+                        genFinalParams.position(), genFinalParams.momentum(), genCharge, magField);
+                }
+                genPropagationResults[ngenmu] = std::make_pair(genSurface, genFinalParams);
+
+                if (genSurface == PropagationConstants::GEN_OUTSIDE_CMS) {
+                    genmu_kindOfMatching[ngenmu] = static_cast<int>(genSurface.genMatchResult);
+                } else {
+                    genmu_kindOfMatching[ngenmu] = -1;
+                }
+                genmu_propagationSurface[ngenmu] = static_cast<int>(genSurface.genMatchResult);
+                genmu_pt[ngenmu] = genParticle.pt();
+                genmu_charge[ngenmu] = genCharge;
+                genmu_initial_x[ngenmu] = genVertex.x();
+                genmu_initial_y[ngenmu] = genVertex.y();
+                genmu_initial_z[ngenmu] = genVertex.z();
+                genmu_initial_p_x[ngenmu] = genMomentum.x();
+                genmu_initial_p_y[ngenmu] = genMomentum.y();
+                genmu_initial_p_z[ngenmu] = genMomentum.z();
+
+                ngenmu++;
             }
         }
     }
@@ -611,9 +616,9 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
                 dmu_propagationSurface[i] = static_cast<Int_t>(matchResult);
                 genmu_kindOfMatching[j] = static_cast<Int_t>(matchResult);
 
-                dmu_dsa_match_chi2[i] = chi2Matrix(i, j)/ 5.;
-                dmu_dsa_match_chi2_pos[i] = chi2Matrix(i, j)/ 2.;
-                dmu_dsa_match_chi2_mom[i] = chi2Matrix(i, j)/ 3.;
+                dmu_dsa_match_chi2[i] = chi2Matrix(i, j) / 5.;
+                dmu_dsa_match_chi2_pos[i] = chi2Matrix(i, j) / 2.;
+                dmu_dsa_match_chi2_mom[i] = chi2Matrix(i, j) / 3.;
 
                 GlobalTrajectoryParameters genFinalParams = propagatedTrajectories[{i, j}].first;
                 GlobalTrajectoryParameters recoFinalParams = propagatedTrajectories[{i, j}].second;
