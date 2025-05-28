@@ -523,9 +523,7 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
         // ----------------------------------
         if (isMCSignal) {
             const reco::Track* candidateTrack = nullptr;
-            if (dmuon.isGlobalMuon()) {
-                candidateTrack = (dmuon.combinedMuon()).get();
-            } else if (dmuon.isStandAloneMuon()) {
+            if (dmuon.isStandAloneMuon()) {
                 candidateTrack = (dmuon.standAloneMuon()).get();
             } else {
                 continue;
