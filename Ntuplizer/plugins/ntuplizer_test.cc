@@ -425,20 +425,20 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
                 if (goodMatch) {
                     genFinalParams = GlobalTrajectoryParameters(
                         genFinalParams.position(), genFinalParams.momentum(), genCharge, magField);
-                    genmu_final_x[j] = genFinalParams.position().x();
-                    genmu_final_y[j] = genFinalParams.position().y();
-                    genmu_final_z[j] = genFinalParams.position().z();
-                    genmu_final_p_x[j] = genFinalParams.momentum().x();
-                    genmu_final_p_y[j] = genFinalParams.momentum().y();
-                    genmu_final_p_z[j] = genFinalParams.momentum().z();
+                    genmu_final_x[ngenmu] = genFinalParams.position().x();
+                    genmu_final_y[ngenmu] = genFinalParams.position().y();
+                    genmu_final_z[ngenmu] = genFinalParams.position().z();
+                    genmu_final_p_x[ngenmu] = genFinalParams.momentum().x();
+                    genmu_final_p_y[ngenmu] = genFinalParams.momentum().y();
+                    genmu_final_p_z[ngenmu] = genFinalParams.momentum().z();
                 }
                 else {
-                    genmu_final_x[j] = 9999.;
-                    genmu_final_y[j] = 9999.;
-                    genmu_final_z[j] = 9999.;
-                    genmu_final_p_x[j] =9999.;
-                    genmu_final_p_y[j] =9999.;
-                    genmu_final_p_z[j] =9999.;
+                    genmu_final_x[ngenmu] = 9999.;
+                    genmu_final_y[ngenmu] = 9999.;
+                    genmu_final_z[ngenmu] = 9999.;
+                    genmu_final_p_x[ngenmu] =9999.;
+                    genmu_final_p_y[ngenmu] =9999.;
+                    genmu_final_p_z[ngenmu] =9999.;
                 }
                 genPropagationResults[ngenmu] = std::make_pair(genSurface, genFinalParams);
 
@@ -466,8 +466,7 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
     // displacedMuons Collection
     // ----------------------------------
     ndmu = 0;
-    std::map<std::pair<int, int>, std::pair<GlobalTrajectoryParameters, GlobalTrajectoryParameters>>
-        propagatedTrajectories;
+    std::map<std::pair<int, int>,  GlobalTrajectoryParameters> propagatedTrajectories;
     TMatrixF chi2Matrix = TMatrixF(dmuons->size(), ngenmu);
     std::map<std::pair<int, int>, GenMatchResults> matchResults;
     for (unsigned int i = 0; i < dmuons->size(); i++) {
@@ -555,7 +554,7 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
                     genSurface, candidateTrack, magField, propagatorAlong, propagatorOpposite,
                     genFinalParams, recoFinalParams, recoError, deltaR_threshold);
 
-                propagatedTrajectories[{ndmu, j}] = {genFinalParams, recoFinalParams};
+                propagatedTrajectories[{ndmu, j}] = recoFinalParams;
                 matchResults[{ndmu, j}] = matchResult;
                 bool goodMatch = (static_cast<int>(matchResult) > 0);
                 AlgebraicVector6 chi2_vector =
@@ -632,12 +631,9 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
                 dmu_dsa_match_chi2_pos[i] = chi2Matrix(i, j) / 2.;
                 dmu_dsa_match_chi2_mom[i] = chi2Matrix(i, j) / 3.;
 
-                GlobalTrajectoryParameters genFinalParams = propagatedTrajectories[{i, j}].first;
-                GlobalTrajectoryParameters recoFinalParams = propagatedTrajectories[{i, j}].second;
+                GlobalTrajectoryParameters recoFinalParams = propagatedTrajectories[{i, j}];
                 GlobalPoint recoFinalVertex = recoFinalParams.position();
                 GlobalVector recoFinalMomentum = recoFinalParams.momentum();
-                GlobalPoint genFinalVertex = genFinalParams.position();
-                GlobalVector genFinalMomentum = genFinalParams.momentum();
 
                 dmu_dsa_final_x[i] = recoFinalVertex.x();
                 dmu_dsa_final_y[i] = recoFinalVertex.y();
