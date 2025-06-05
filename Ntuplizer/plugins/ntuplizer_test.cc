@@ -425,6 +425,20 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
                 if (goodMatch) {
                     genFinalParams = GlobalTrajectoryParameters(
                         genFinalParams.position(), genFinalParams.momentum(), genCharge, magField);
+                    genmu_final_x[j] = genFinalParams.position().x();
+                    genmu_final_y[j] = genFinalParams.position().y();
+                    genmu_final_z[j] = genFinalParams.position().z();
+                    genmu_final_p_x[j] = genFinalParams.momentum().x();
+                    genmu_final_p_y[j] = genFinalParams.momentum().y();
+                    genmu_final_p_z[j] = genFinalParams.momentum().z();
+                }
+                else {
+                    genmu_final_x[j] = 9999.;
+                    genmu_final_y[j] = 9999.;
+                    genmu_final_z[j] = 9999.;
+                    genmu_final_p_x[j] =9999.;
+                    genmu_final_p_y[j] =9999.;
+                    genmu_final_p_z[j] =9999.;
                 }
                 genPropagationResults[ngenmu] = std::make_pair(genSurface, genFinalParams);
 
@@ -632,12 +646,6 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
                 dmu_dsa_final_p_y[i] = recoFinalMomentum.y();
                 dmu_dsa_final_p_z[i] = recoFinalMomentum.z();
 
-                genmu_final_x[j] = genFinalVertex.x();
-                genmu_final_y[j] = genFinalVertex.y();
-                genmu_final_z[j] = genFinalVertex.z();
-                genmu_final_p_x[j] = genFinalMomentum.x();
-                genmu_final_p_y[j] = genFinalMomentum.y();
-                genmu_final_p_z[j] = genFinalMomentum.z();
                 break;
             }
         }
