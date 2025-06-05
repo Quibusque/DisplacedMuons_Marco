@@ -66,9 +66,8 @@ void markUniqueBestMatches(const TMatrixF& matrix, TMatrixF& boolMatrix) {
 GenMatchResults matchRecoTrackToGenSurface(
     const PropagationSurface genSurface, const reco::Track* recoTrack,
     const MagneticField* magField, const Propagator* propagatorAlong,
-    const Propagator* propagatorOpposite, const GlobalTrajectoryParameters& genFinalParams,
-    GlobalTrajectoryParameters& recoFinalParams, CartesianTrajectoryError& finalRecoError,
-    Float_t deltaR_thr) {
+    const Propagator* propagatorOpposite, GlobalTrajectoryParameters& recoFinalParams, 
+    CartesianTrajectoryError& finalRecoError) {
     if (static_cast<int>(genSurface.genMatchResult) < 0) {
         return genSurface.genMatchResult;
     }
@@ -87,11 +86,6 @@ GenMatchResults matchRecoTrackToGenSurface(
         recoFinalParams =
             GlobalTrajectoryParameters(recoTsosPath.first.globalPosition(),
                                        recoTsosPath.first.globalMomentum(), recoCharge, magField);
-
-        Float_t deltaR_value = reco::deltaR(genFinalParams.momentum(), recoFinalParams.momentum());
-        if (deltaR_value > deltaR_thr) {
-            return GenMatchResults::DELTA_R_FAIL;
-        }
 
         finalRecoError = CartesianTrajectoryError(recoTsosPath.first.cartesianError());
         return genSurface.genMatchResult;

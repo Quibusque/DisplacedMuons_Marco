@@ -548,11 +548,9 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
                 GlobalTrajectoryParameters recoFinalParams;
                 CartesianTrajectoryError recoError;
 
-                Float_t deltaR_threshold = 1000;
-
                 GenMatchResults matchResult = matchRecoTrackToGenSurface(
                     genSurface, candidateTrack, magField, propagatorAlong, propagatorOpposite,
-                    genFinalParams, recoFinalParams, recoError, deltaR_threshold);
+                    recoFinalParams, recoError);
 
                 propagatedTrajectories[{ndmu, j}] = recoFinalParams;
                 matchResults[{ndmu, j}] = matchResult;

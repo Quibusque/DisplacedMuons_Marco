@@ -55,15 +55,13 @@ void markUniqueBestMatches(const TMatrixF& matrix, TMatrixF& boolMatrix);
  * @param recoFinalParams The final parameters of the reconstructed trajectory (modified by this
  * function).
  * @param finalRecoError The error of the reconstructed trajectory (modified by this function).
- * @param deltaR_thr reco and gen deltaR must be below this to be considered a match.
  * @return The matching result as a GenMatchResults enum value.
  */
 GenMatchResults matchRecoTrackToGenSurface(
     const PropagationSurface genSurface, const reco::Track* recoTrack,
     const MagneticField* magField, const Propagator* propagatorAlong,
-    const Propagator* propagatorOpposite, const GlobalTrajectoryParameters& genFinalParams,
-    GlobalTrajectoryParameters& recoFinalParams, CartesianTrajectoryError& finalRecoError,
-    Float_t deltaR_thr);
+    const Propagator* propagatorOpposite, GlobalTrajectoryParameters& recoFinalParams,
+    CartesianTrajectoryError& finalRecoError);
 /**
  * @brief Calculates the chi-square between reco and gen given reco errors
  *
