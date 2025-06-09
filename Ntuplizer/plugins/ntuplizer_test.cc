@@ -431,14 +431,13 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
                     genmu_final_p_x[ngenmu] = genFinalParams.momentum().x();
                     genmu_final_p_y[ngenmu] = genFinalParams.momentum().y();
                     genmu_final_p_z[ngenmu] = genFinalParams.momentum().z();
-                }
-                else {
+                } else {
                     genmu_final_x[ngenmu] = 9999.;
                     genmu_final_y[ngenmu] = 9999.;
                     genmu_final_z[ngenmu] = 9999.;
-                    genmu_final_p_x[ngenmu] =9999.;
-                    genmu_final_p_y[ngenmu] =9999.;
-                    genmu_final_p_z[ngenmu] =9999.;
+                    genmu_final_p_x[ngenmu] = 9999.;
+                    genmu_final_p_y[ngenmu] = 9999.;
+                    genmu_final_p_z[ngenmu] = 9999.;
                 }
                 genPropagationResults[ngenmu] = std::make_pair(genSurface, genFinalParams);
 
@@ -466,8 +465,9 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
     // displacedMuons Collection
     // ----------------------------------
     ndmu = 0;
-    std::map<std::pair<int, int>,  GlobalTrajectoryParameters> propagatedTrajectories;
-    TMatrixF chi2Matrix = TMatrixF(dmuons->size(), ngenmu);
+    std::map<std::pair<int, int>, GlobalTrajectoryParameters> recoPropagatedTrajectories;
+    std::vector<Matches> barrelMatches;
+    std::vector<Matches> endcapMatches;
     std::map<std::pair<int, int>, GenMatchResults> matchResults;
     for (unsigned int i = 0; i < dmuons->size(); i++) {
         const reco::Muon& dmuon(dmuons->at(i));
@@ -525,7 +525,6 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
             dmu_dsa_final_p_z[ndmu] = 9999;
 
             for (int j = 0; j < ngenmu; j++) {
-                chi2Matrix(ndmu, j) = 9999;
                 matchResults[{ndmu, j}] = GenMatchResults::NONE;
             }
         } else {
@@ -547,21 +546,23 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
                 GlobalTrajectoryParameters genFinalParams = genPropagationResults[j].second;
                 GlobalTrajectoryParameters recoFinalParams;
                 CartesianTrajectoryError recoError;
-
+                // not removing recoError in case of future use but it's not used atm
                 GenMatchResults matchResult = matchRecoTrackToGenSurface(
                     genSurface, candidateTrack, magField, propagatorAlong, propagatorOpposite,
                     recoFinalParams, recoError);
 
-                propagatedTrajectories[{ndmu, j}] = recoFinalParams;
+                recoPropagatedTrajectories[{ndmu, j}] = recoFinalParams;
                 matchResults[{ndmu, j}] = matchResult;
-                bool goodMatch = (static_cast<int>(matchResult) > 0);
-                AlgebraicVector6 chi2_vector =
-                    calculateChi2Vector(genFinalParams, recoFinalParams, recoError);
-                Float_t chi2 = 0.;
-                for (int k = 0; k < 6; k++) {
-                    chi2 += chi2_vector(k);
+                if (isGenMatch(genFinalParams, recoFinalParams, genSurface)) {
+                    Float_t distance =
+                        genMatchDistance(genFinalParams, recoFinalParams, genSurface);
+                    if (matchResult == GenMatchResults::CYLINDER) {
+                        barrelMatches.push_back(Matches({{ndmu, j}, distance}));
+                    } else if (matchResult == GenMatchResults::POS_ENDCAP ||
+                               matchResult == GenMatchResults::NEG_ENDCAP) {
+                        endcapMatches.push_back(Matches({{ndmu, j}, distance}));
+                    }
                 }
-                chi2Matrix(ndmu, j) = (goodMatch) ? chi2 : 9999;
             }
 
             // Check if trigger fired:
@@ -590,60 +591,84 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
     //  -----------------------------------------------------
     //  Gen Matching continued MUST BE OUTSIDE LOOP ON RECOS
     //  -----------------------------------------------------
-
-    // dmuons->size() is larger than ndmu
-    // resize the chi2Matrix to ndmu,ngenmu size
-    chi2Matrix.ResizeTo(ndmu, ngenmu);
-    TMatrixF boolMatrix = TMatrixF(200, 200);
-    markUniqueBestMatches(chi2Matrix, boolMatrix);
-    // additional safety step: in principle 9999 could be the
-    // minimal value, but it should not be considered
-    for (int i = 0; i < ndmu; i++) {
-        for (int j = 0; j < ngenmu; j++) {
-            if (chi2Matrix(i, j) == 9999) {
-                boolMatrix(i, j) = 0;
-            }
-        }
+    // sorth both barrel and endcap matches
+    std::sort(barrelMatches.begin(), barrelMatches.end());
+    std::sort(endcapMatches.begin(), endcapMatches.end());
+    std::vector<bool> recoMatched(ndmu, false);
+    std::vector<bool> genMatched(ngenmu, false);
+    std::vector<std::pair<int, int>> bestMatches;
+    // print barrelMatches and endcapMatches
+    std::cout << "Barrel Matches:" << std::endl;
+    for (const auto& match : barrelMatches) {
+        std::cout << "Reco Index: " << match.matchIndex.first
+                  << ", Gen Index: " << match.matchIndex.second << ", Distance: " << match.distance
+                  << std::endl;
     }
-    if (ndmu == 0) {
-        for (int j = 0; j < ngenmu; j++) {
-            if (genmu_kindOfMatching[j] != static_cast<Int_t>(GenMatchResults::GEN_OUTSIDE_CMS)) {
-                genmu_kindOfMatching[j] = static_cast<Int_t>(GenMatchResults::ZERO_RECOS_FOUND);
+    std::cout << "Endcap Matches:" << std::endl;
+    for (const auto& match : endcapMatches) {
+        std::cout << "Reco Index: " << match.matchIndex.first
+                  << ", Gen Index: " << match.matchIndex.second << ", Distance: " << match.distance
+                  << std::endl;
+    }
+
+    // Loop through sorted matches, if they have a valid
+    //  genmatchresult i.e. > 0, they are the best
+    // for this pair
+
+    // Process both barrelMatches and endcapMatches
+    for (const auto& matchCollection : {barrelMatches, endcapMatches}) {
+        for (const auto& match : matchCollection) {
+            int recoIdx = match.matchIndex.first;
+            int genIdx = match.matchIndex.second;
+            GenMatchResults matchResult = matchResults[{recoIdx, genIdx}];
+            if (static_cast<int>(matchResult) < 0) {
+                continue;
+            }
+            if (!recoMatched[recoIdx] && !genMatched[genIdx]) {
+                recoMatched[recoIdx] = true;
+                genMatched[genIdx] = true;
+                bestMatches.push_back({recoIdx, genIdx});
+                std::cout << "Best match found: recoIdx=" << recoIdx << ", genIdx=" << genIdx
+                          << ", matchResult=" << static_cast<int>(matchResult) << std::endl;
             }
         }
     }
 
     // -------------------------------------
-    // Assign residuals and gen match info
+    // Assign final states and gen match info
     // -------------------------------------
+    std::cout << "Assigning final states and gen match info..." << std::endl;
+    for (const auto& match : bestMatches) {
+        int recoIndex = match.first;
+        int genIndex = match.second;
+        dmu_hasGenMatch[recoIndex] = true;
+        dmu_genMatchedIndex[recoIndex] = genIndex;
+        GenMatchResults matchResult = matchResults[{recoIndex, genIndex}];
+        dmu_propagationSurface[recoIndex] = static_cast<Int_t>(matchResult);
+        genmu_kindOfMatching[genIndex] = static_cast<Int_t>(matchResult);
+
+        GlobalTrajectoryParameters recoFinalParams =
+            recoPropagatedTrajectories[{recoIndex, genIndex}];
+        GlobalPoint recoFinalVertex = recoFinalParams.position();
+        GlobalVector recoFinalMomentum = recoFinalParams.momentum();
+
+        dmu_dsa_final_x[recoIndex] = recoFinalVertex.x();
+        dmu_dsa_final_y[recoIndex] = recoFinalVertex.y();
+        dmu_dsa_final_z[recoIndex] = recoFinalVertex.z();
+        dmu_dsa_final_p_x[recoIndex] = recoFinalMomentum.x();
+        dmu_dsa_final_p_y[recoIndex] = recoFinalMomentum.y();
+        dmu_dsa_final_p_z[recoIndex] = recoFinalMomentum.z();
+    }
+
+    // fill genmu_kindOfMatching for the failed matches  genmu_kindOfMatching==-1 is the default
+    // value for not already set matches
+    std::cout << "Filling genmu_kindOfMatching for failed matches..." << std::endl;
     for (Int_t j = 0; j < ngenmu; j++) {
-        for (int i = 0; i < ndmu; i++) {
-            if (boolMatrix(i, j) == 1.0) {
-                dmu_hasGenMatch[i] = true;
-                dmu_genMatchedIndex[i] = j;
-                GenMatchResults matchResult = matchResults[{i, j}];
-                dmu_propagationSurface[i] = static_cast<Int_t>(matchResult);
-                genmu_kindOfMatching[j] = static_cast<Int_t>(matchResult);
-
-                dmu_dsa_match_chi2[i] = chi2Matrix(i, j) / 5.;
-                dmu_dsa_match_chi2_pos[i] = chi2Matrix(i, j) / 2.;
-                dmu_dsa_match_chi2_mom[i] = chi2Matrix(i, j) / 3.;
-
-                GlobalTrajectoryParameters recoFinalParams = propagatedTrajectories[{i, j}];
-                GlobalPoint recoFinalVertex = recoFinalParams.position();
-                GlobalVector recoFinalMomentum = recoFinalParams.momentum();
-
-                dmu_dsa_final_x[i] = recoFinalVertex.x();
-                dmu_dsa_final_y[i] = recoFinalVertex.y();
-                dmu_dsa_final_z[i] = recoFinalVertex.z();
-                dmu_dsa_final_p_x[i] = recoFinalMomentum.x();
-                dmu_dsa_final_p_y[i] = recoFinalMomentum.y();
-                dmu_dsa_final_p_z[i] = recoFinalMomentum.z();
-
-                break;
-            }
+        std::cout << "Processing genmu " << j << std::endl;
+        for (Int_t i = 0; i < ndmu; i++) {
+            std::cout << "matchResults[" << i << ", " << j
+                      << "] = " << static_cast<int>(matchResults[{i, j}]) << std::endl;
         }
-        // fill genmu_kindOfMatching for the failed matches
         if (genmu_kindOfMatching[j] == -1 && ndmu > 0 &&
             (static_cast<Int_t>(matchResults[{0, j}]) < 0)) {
             Int_t first = static_cast<Int_t>(matchResults[{0, j}]);
@@ -659,6 +684,8 @@ void ntuplizer_test::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
             }
             if (all_same) {
                 genmu_kindOfMatching[j] = first;
+                std::cout << "genmu_kindOfMatching updated for genIndex=" << j
+                          << " with value=" << first << std::endl;
             }
         }
     }

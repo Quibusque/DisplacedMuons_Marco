@@ -24,20 +24,6 @@ typedef math::Error<5>::type CovarianceMatrix;
 bool hasMotherWithPdgId(const reco::Candidate* particle, int pdgId);
 
 typedef std::pair<TrajectoryStateOnSurface, double> TsosPath;
-/**
- * @brief matrix contains the chi2-like values. boolMatrix is filled to represent the
- * best values while avoiding duplicates.
- *
- * boolMatrix is filled with 0.0, 1.0s are used to mark the best minimal values.
- * There can be at most one true value per row and one true value per column. In case
- * of duplicates either in a column or in a row, the one with the lowest value is kept
- * and the others are set to 0.0.
- *
- * @param matrix the input matrix with chi2-like values
- * @param boolMatrix the output boolean matrix with 1.0 for the minimal values (modified by this
- * function)
- */
-void markUniqueBestMatches(const TMatrixF& matrix, TMatrixF& boolMatrix);
 
 /**
  * @brief Matches a reconstructed track to a generated surface.
@@ -57,11 +43,13 @@ void markUniqueBestMatches(const TMatrixF& matrix, TMatrixF& boolMatrix);
  * @param finalRecoError The error of the reconstructed trajectory (modified by this function).
  * @return The matching result as a GenMatchResults enum value.
  */
-GenMatchResults matchRecoTrackToGenSurface(
-    const PropagationSurface genSurface, const reco::Track* recoTrack,
-    const MagneticField* magField, const Propagator* propagatorAlong,
-    const Propagator* propagatorOpposite, GlobalTrajectoryParameters& recoFinalParams,
-    CartesianTrajectoryError& finalRecoError);
+GenMatchResults matchRecoTrackToGenSurface(const PropagationSurface genSurface,
+                                           const reco::Track* recoTrack,
+                                           const MagneticField* magField,
+                                           const Propagator* propagatorAlong,
+                                           const Propagator* propagatorOpposite,
+                                           GlobalTrajectoryParameters& recoFinalParams,
+                                           CartesianTrajectoryError& finalRecoError);
 /**
  * @brief Calculates the chi-square between reco and gen given reco errors
  *
@@ -72,5 +60,16 @@ GenMatchResults matchRecoTrackToGenSurface(
 AlgebraicVector6 calculateChi2Vector(GlobalTrajectoryParameters genParams,
                                      GlobalTrajectoryParameters recoParams,
                                      CartesianTrajectoryError recoError);
+
+struct Matches {
+    std::pair<int, int> matchIndex;  // pair of indices (reco, gen)
+    Float_t distance;
+    // define the less than operator to order them by best distance
+    bool operator<(const Matches& other) const { return distance < other.distance; }
+};
+
+Float_t genMatchDistance(const GlobalTrajectoryParameters& genFinalParams,
+                         const GlobalTrajectoryParameters& recoFinalParams,
+                         const PropagationSurface& surface);
 
 #endif

@@ -14,60 +14,13 @@ bool hasMotherWithPdgId(const reco::Candidate* particle, int pdgId) {
     return false;
 }
 
-void markUniqueBestMatches(const TMatrixF& matrix, TMatrixF& boolMatrix) {
-    unsigned int nrows = matrix.GetNrows();
-    unsigned int ncols = matrix.GetNcols();
-
-    // Initialize the boolean matrix with false values
-    boolMatrix.ResizeTo(nrows, ncols);
-    boolMatrix.Zero();
-
-    // Find the minimal value in each column and set it to true in the boolean matrix
-    for (unsigned int col = 0; col < ncols; ++col) {
-        float minVal = std::numeric_limits<float>::infinity();
-        int minRow = -1;
-        for (unsigned int row = 0; row < nrows; ++row) {
-            if (matrix(row, col) < minVal) {
-                minVal = matrix(row, col);
-                minRow = row;
-            }
-        }
-        if (minRow != -1) {
-            boolMatrix(minRow, col) = 1.0;
-        }
-    }
-
-    // If a row has more than one true value keep the lowest one and set the others to false
-    for (unsigned int row = 0; row < nrows; ++row) {
-        std::vector<unsigned int> trueCols;
-        for (unsigned int col = 0; col < ncols; ++col) {
-            if (boolMatrix(row, col) == 1.0) {
-                trueCols.push_back(col);
-            }
-        }
-        if (trueCols.size() > 1) {
-            float minVal = std::numeric_limits<float>::infinity();
-            unsigned int minCol = -1;
-            for (unsigned int col : trueCols) {
-                if (matrix(row, col) < minVal) {
-                    minVal = matrix(row, col);
-                    minCol = col;
-                }
-            }
-            for (unsigned int col : trueCols) {
-                if (col != minCol) {
-                    boolMatrix(row, col) = 0.0;
-                }
-            }
-        }
-    }
-}
-
-GenMatchResults matchRecoTrackToGenSurface(
-    const PropagationSurface genSurface, const reco::Track* recoTrack,
-    const MagneticField* magField, const Propagator* propagatorAlong,
-    const Propagator* propagatorOpposite, GlobalTrajectoryParameters& recoFinalParams, 
-    CartesianTrajectoryError& finalRecoError) {
+GenMatchResults matchRecoTrackToGenSurface(const PropagationSurface genSurface,
+                                           const reco::Track* recoTrack,
+                                           const MagneticField* magField,
+                                           const Propagator* propagatorAlong,
+                                           const Propagator* propagatorOpposite,
+                                           GlobalTrajectoryParameters& recoFinalParams,
+                                           CartesianTrajectoryError& finalRecoError) {
     if (static_cast<int>(genSurface.genMatchResult) < 0) {
         return genSurface.genMatchResult;
     }
@@ -110,4 +63,54 @@ AlgebraicVector6 calculateChi2Vector(GlobalTrajectoryParameters genParams,
     }
 
     return chi2_vec / 6;
+}
+
+bool isGenMatch(const GlobalTrajectoryParameters& genFinalParams,
+                const GlobalTrajectoryParameters& recoFinalParams,
+                const PropagationSurface& surface) {
+    // Proper angle difference in [0,pi] range
+    Float_t deltaPhi = std::abs(recoFinalParams.momentum().phi() - genFinalParams.momentum().phi());
+    deltaPhi = (deltaPhi < M_PI) ? deltaPhi : (2 * M_PI - deltaPhi);
+    deltaPhi = std::abs(deltaPhi);
+    switch (surface.genMatchResult) {
+        case GenMatchResults::CYLINDER: {
+            Float_t deltaZ =
+                std::abs(recoFinalParams.position().z() - genFinalParams.position().z());
+            return (deltaPhi < 0.025 && deltaZ < 150.0);
+        }
+        case GenMatchResults::POS_ENDCAP:
+        case GenMatchResults::NEG_ENDCAP: {
+            Float_t deltaR =
+                std::abs(recoFinalParams.position().perp() - genFinalParams.position().perp());
+            // M_PI/36 == 5 degrees
+            return (deltaPhi < M_PI / 36. && deltaR < 50.0);
+        }
+
+        default:
+            return false;
+    }
+}
+
+Float_t genMatchDistance(const GlobalTrajectoryParameters& genFinalParams,
+                         const GlobalTrajectoryParameters& recoFinalParams,
+                         const PropagationSurface& surface) {
+    // Proper angle difference in [0,pi] range
+    Float_t deltaPhi = std::abs(recoFinalParams.momentum().phi() - genFinalParams.momentum().phi());
+    deltaPhi = (deltaPhi < M_PI) ? deltaPhi : (2 * M_PI - deltaPhi);
+    deltaPhi = std::abs(deltaPhi);
+    switch (surface.genMatchResult) {
+        case GenMatchResults::CYLINDER: {
+            Float_t deltaZ =
+                std::abs(recoFinalParams.position().z() - genFinalParams.position().z());
+            return std::sqrt(deltaPhi * deltaPhi + deltaZ * deltaZ);
+        }
+        case GenMatchResults::POS_ENDCAP:
+        case GenMatchResults::NEG_ENDCAP: {
+            Float_t deltaR =
+                std::abs(recoFinalParams.position().perp() - genFinalParams.position().perp());
+            return std::sqrt(deltaPhi * deltaPhi + deltaR * deltaR);
+        }
+        default:
+            return std::numeric_limits<float>::infinity();
+    }
 }
